@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Lattice inspired color palette */
+:root {
+  --color-primary: 262 70% 50%; /* purple */
+  --color-secondary: 262 100% 96%; /* lavender background */
+  --color-muted: 240 5% 94%;
+  --color-bg: 0 0% 100%;
+  --color-fg: 224 71% 4%;
+}
+
+html.dark {
+  --color-primary: 262 70% 60%;
+  --color-secondary: 262 35% 20%;
+  --color-muted: 240 4% 16%;
+  --color-bg: 224 71% 4%;
+  --color-fg: 0 0% 100%;
+}
+
+
 /* custom globals */
 body {
   @apply font-sans text-gray-900;

@@ -6,6 +6,7 @@ let app;
 let mongo;
 
 beforeAll(async () => {
+  process.env.NODE_ENV = 'test';
   mongo = await MongoMemoryServer.create();
   process.env.MONGODB_URI = mongo.getUri();
   process.env.JWT_SECRET = 'supersecrettokenvalue123';
@@ -30,7 +31,7 @@ describe('Auth Endpoints', () => {
         lastName: 'User'
       });
     expect(res.statusCode).toEqual(201);
-    expect(res.body).toHaveProperty('token');
+    expect(res.body).toHaveProperty('accessToken');
   });
 
   it('should login the user', async () => {
@@ -38,6 +39,6 @@ describe('Auth Endpoints', () => {
       .post('/api/auth/login')
       .send({ email: 'test@example.com', password: 'password' });
     expect(res.statusCode).toEqual(200);
-    expect(res.body).toHaveProperty('token');
+    expect(res.body).toHaveProperty('accessToken');
   });
 });

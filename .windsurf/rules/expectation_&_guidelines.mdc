@@ -72,23 +72,21 @@ alwaysApply: false
 
 ---
 
-### 🟠 Rule 6 — **Self-Testing Before Handoff**
-
-> After completing any task, the coding agent must **execute the relevant tests or otherwise verify the functionality independently** before notifying the user.
-
-* ✅ Run automated test suite or manual verification as appropriate.  
-* ✅ Only if tests pass and functionality behaves as expected, inform the user of success and ask for approval to proceed.  
-* ❌ Do not request next tasks or user validation until self-testing is done.
+### 🟠 Rule 6 — Main-Task Approval Protocol
+The coding agent may break a “main task” into internal sub-tasks and work through them autonomously.
+After completing all sub-tasks of the current main task, the agent must:
+a. Run any relevant tests / manual checks and ensure they pass.
+b. Present a concise summary of what was done.
+c. Explicitly request user approval for the main task (sub-task-level approvals are not required).
+The agent must wait for a clear approval message (e.g., “approve”/“approved”) before marking the main task as complete in todo.mdc and moving on to the next main task.
+If the agent is uncertain or blocked during sub-tasks, it may ask clarifying questions, but should not seek approval until the full main task is finished.
 
 ---
 
-### 🟠 Rule 7 — **Update TODO Checklist After Approval**
-
-> Once the user explicitly approves a completed task, the coding agent must mark the corresponding checkbox in `todo.mdc`.
-
-* ✅ Wait for user message containing clear approval (e.g., "approve"/"approved").  
-* ✅ Use `[x]` to tick the task and commit the change.  
-* ❌ Do not modify checklist before user approval.
+### 🟠 Rule 7 — Checklist Update After Main-Task Approval
+Upon receiving main-task approval, mark the corresponding checkbox in todo.mdc with [x].
+Do not modify checklist items before approval.
+Proceed to the next main task following the same protocol.
 
 ---
 

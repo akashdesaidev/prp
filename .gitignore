@@ -27,5 +27,5 @@ logs/
 .vscode/
 
 # Others
-*.local
+# *.local
 

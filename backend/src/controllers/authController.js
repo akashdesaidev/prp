@@ -3,6 +3,12 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import User from '../models/User.js';
 
+// Helper functions
+const generateAccessToken = (payload) =>
+  jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+const generateRefreshToken = (payload) =>
+  jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
@@ -19,10 +25,10 @@ export const register = async (req, res) => {
     if (user) return res.status(400).json({ error: 'User already exists' });
     const hashed = await bcrypt.hash(password, 10);
     user = await User.create({ email, password: hashed, firstName, lastName });
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: '1h'
-    });
-    return res.status(201).json({ token });
+        const payload = { id: user._id, role: user.role };
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+    return res.status(201).json({ accessToken, refreshToken });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -42,11 +48,30 @@ export const login = async (req, res) => {
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: '1h'
-    });
-    return res.json({ token });
+        const payload = { id: user._id, role: user.role };
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+    return res.json({ accessToken, refreshToken });
   } catch (err) {
     return res.status(500).json({ error: err.message });
+  }
+};
+
+// Refresh token endpoint
+const refreshSchema = z.object({
+  refreshToken: z.string()
+});
+
+export const refresh = async (req, res) => {
+  const parse = refreshSchema.safeParse(req.body);
+  if (!parse.success) return res.status(400).json(parse.error.flatten());
+  const { refreshToken } = parse.data;
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    const payload = { id: decoded.id, role: decoded.role };
+    const accessToken = generateAccessToken(payload);
+    return res.json({ accessToken });
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid refresh token' });
   }
 };

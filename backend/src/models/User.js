@@ -10,7 +10,10 @@ const userSchema = new mongoose.Schema({
     enum: ['admin', 'hr', 'manager', 'employee'],
     default: 'employee'
   },
-  isActive: { type: Boolean, default: true }
+  isActive: { type: Boolean, default: true },
+  department: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', default: null },
+  team: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
+  manager: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema);
