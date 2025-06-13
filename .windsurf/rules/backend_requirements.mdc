@@ -1,0 +1,676 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 🔥 Express.js + MongoDB Backend Architecture
+## AI-Driven Performance Review Platform
+
+---
+
+## 1️⃣ Tech Stack
+
+**Core Framework:**
+- `Express.js 4.x` (Node.js 20 LTS)
+- `MongoDB 7.x` with `Mongoose ODM`
+- `JavaScript` (ES6+) - No TypeScript for simplicity
+
+**Key Libraries:**
+```json
+{
+  "express": "^4.18.2",
+  "mongoose": "^8.0.0",
+  "bcryptjs": "^2.4.3",
+  "jsonwebtoken": "^9.0.2",
+  "zod": "^3.22.4",
+  "cors": "^2.8.5",
+  "helmet": "^7.1.0",
+  "express-rate-limit": "^7.1.5",
+  "nodemailer": "^6.9.7",
+  "winston": "^3.11.0",
+  "dotenv": "^16.3.1"
+}
+```
+
+---
+
+## 2️⃣ Project Structure
+
+```
+backend/
+├── src/
+│   ├── config/
+│   │   ├── database.js
+│   │   ├── email.js
+│   │   └── ai.js
+│   ├── models/
+│   │   ├── User.js
+│   │   ├── OKR.js
+│   │   ├── Feedback.js
+│   │   ├── ReviewCycle.js
+│   │   ├── Review.js
+│   │   └── TimeEntry.js
+│   ├── controllers/
+│   │   ├── authController.js
+│   │   ├── userController.js
+│   │   ├── okrController.js
+│   │   ├── feedbackController.js
+│   │   ├── reviewController.js
+│   │   ├── timeController.js
+│   │   └── aiController.js
+│   ├── middleware/
+│   │   ├── auth.js
+│   │   ├── rbac.js
+│   │   ├── validation.js
+│   │   └── errorHandler.js
+│   ├── routes/
+│   │   └── api/
+│   │       ├── auth.js
+│   │       ├── users.js
+│   │       ├── okrs.js
+│   │       ├── feedback.js
+│   │       ├── reviews.js
+│   │       ├── time.js
+│   │       └── ai.js
+│   ├── services/
+│   │   ├── aiService.js
+│   │   ├── emailService.js
+│   │   └── analyticsService.js
+│   └── utils/
+│       ├── logger.js
+│       └── helpers.js
+├── tests/
+├── .env.example
+├── package.json
+└── server.js
+```
+
+---
+
+## 3️⃣ MongoDB Schema Design
+
+### Users Collection
+```javascript
+const userSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  password: String, // hashed with bcrypt
+  firstName: { type: String, required: true },
+  lastName: { type: String, required: true },
+  role: { 
+    type: String, 
+    enum: ['admin', 'hr', 'manager', 'employee'],
+    required: true 
+  },
+  department: String,
+  managerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  isActive: { type: Boolean, default: true },
+  
+  // Manager history for when managers change
+  managerHistory: [{
+    managerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    startDate: Date,
+    endDate: Date
+  }],
+  
+  // Notification preferences
+  notificationPreferences: {
+    emailNotifications: { type: Boolean, default: true },
+    weeklyReminders: { type: Boolean, default: true },
+    deadlineAlerts: { type: Boolean, default: true }
+  }
+}, { 
+  timestamps: true,
+  collection: 'users'
+});
+```
+
+### OKRs Collection
+```javascript
+const okrSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: String,
+  type: { 
+    type: String, 
+    enum: ['company', 'department', 'team', 'individual'],
+    required: true 
+  },
+  parentOkrId: { type: mongoose.Schema.Types.ObjectId, ref: 'OKR' },
+  assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  department: String,
+  tags: [String],
+  status: { 
+    type: String, 
+    enum: ['draft', 'active', 'completed', 'archived'],
+    default: 'active'
+  },
+  startDate: Date,
+  endDate: Date,
+  
+  keyResults: [{
+    title: { type: String, required: true },
+    description: String,
+    targetValue: Number,
+    currentValue: { type: Number, default: 0 },
+    score: { type: Number, min: 1, max: 10, default: 1 },
+    unit: String,
+    updatedAt: { type: Date, default: Date.now }
+  }],
+  
+  // Progress tracking
+  progressSnapshots: [{
+    keyResultId: mongoose.Schema.Types.ObjectId,
+    score: { type: Number, min: 1, max: 10 },
+    notes: String,
+    recordedAt: { type: Date, default: Date.now },
+    recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    snapshotType: { 
+      type: String, 
+      enum: ['manual', 'auto_weekly', 'cycle_end'],
+      default: 'manual'
+    }
+  }]
+}, { 
+  timestamps: true,
+  collection: 'okrs'
+});
+```
+
+### Time Entries Collection
+```javascript
+const timeEntrySchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  okrId: { type: mongoose.Schema.Types.ObjectId, ref: 'OKR', required: true },
+  keyResultId: mongoose.Schema.Types.ObjectId,
+  date: { type: Date, required: true },
+  hoursSpent: { type: Number, required: true, min: 0, max: 24 },
+  description: String,
+  category: { 
+    type: String, 
+    enum: ['direct_work', 'planning', 'collaboration', 'review', 'other'],
+    default: 'direct_work'
+  }
+}, { 
+  timestamps: true,
+  collection: 'timeEntries'
+});
+```
+
+### Feedback Collection
+```javascript
+const feedbackSchema = new mongoose.Schema({
+  fromUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  toUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  content: { type: String, required: true },
+  rating: { type: Number, min: 1, max: 10 },
+  type: { type: String, enum: ['public', 'private'], default: 'public' },
+  category: { 
+    type: String, 
+    enum: ['skills', 'values', 'initiatives'],
+    default: 'skills'
+  },
+  tags: [String], // skill tags
+  isAnonymous: { type: Boolean, default: false },
+  reviewCycleId: { type: mongoose.Schema.Types.ObjectId, ref: 'ReviewCycle' },
+  
+  // AI analysis
+  sentimentScore: { 
+    type: String, 
+    enum: ['positive', 'neutral', 'negative']
+  },
+  aiQualityFlags: [String]
+}, { 
+  timestamps: true,
+  collection: 'feedback'
+});
+```
+
+### Review Cycles Collection
+```javascript
+const reviewCycleSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  type: { 
+    type: String, 
+    enum: ['quarterly', 'half-yearly', 'annual', 'custom'],
+    required: true 
+  },
+  templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'ReviewTemplate' },
+  startDate: { type: Date, required: true },
+  endDate: { type: Date, required: true },
+  gracePeriodDays: { type: Number, default: 3 },
+  status: { 
+    type: String, 
+    enum: ['draft', 'active', 'grace-period', 'closed'],
+    default: 'draft'
+  },
+  isEmergency: { type: Boolean, default: false },
+  
+  participants: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    role: { 
+      type: String, 
+      enum: ['reviewee', 'peer', 'manager', 'self']
+    },
+    status: { 
+      type: String, 
+      enum: ['pending', 'submitted', 'not-submitted'],
+      default: 'pending'
+    },
+    submittedAt: Date,
+    removedAt: Date
+  }],
+  
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+}, { 
+  timestamps: true,
+  collection: 'reviewCycles'
+});
+```
+
+### Review Submissions Collection
+```javascript
+const reviewSubmissionSchema = new mongoose.Schema({
+  reviewCycleId: { type: mongoose.Schema.Types.ObjectId, ref: 'ReviewCycle', required: true },
+  revieweeId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  reviewerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  reviewType: { 
+    type: String, 
+    enum: ['self', 'peer', 'manager', 'upward'],
+    required: true 
+  },
+  
+  responses: [{
+    questionId: mongoose.Schema.Types.ObjectId,
+    questionText: String,
+    response: String,
+    rating: { type: Number, min: 1, max: 10 }
+  }],
+  
+  overallRating: { type: Number, min: 1, max: 10 },
+  
+  // AI Features
+  aiSuggestions: {
+    suggestedRating: Number,
+    suggestedComments: String,
+    usedSuggestion: { type: Boolean, default: false }
+  },
+  
+  // AI Scoring (as per PRD formula)
+  aiScoring: {
+    recentFeedbackScore: Number,
+    okrScore: Number,
+    peerFeedbackScore: Number,
+    managerFeedbackScore: Number,
+    selfAssessmentScore: Number,
+    tenureAdjustmentScore: Number,
+    finalScore: Number
+  },
+  
+  sentimentAnalysis: {
+    overallSentiment: { 
+      type: String, 
+      enum: ['positive', 'neutral', 'negative']
+    },
+    qualityFlags: [String]
+  },
+  
+  submittedAt: Date
+}, { 
+  timestamps: true,
+  collection: 'reviewSubmissions'
+});
+```
+
+---
+
+## 4️⃣ Authentication & Authorization
+
+### JWT Authentication Middleware
+```javascript
+// middleware/auth.js
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+
+const auth = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ error: 'Access denied. No token provided.' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select('-password');
+    
+    if (!user || !user.isActive) {
+      return res.status(401).json({ error: 'Invalid token or user inactive.' });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid token.' });
+  }
+};
+```
+
+### Role-Based Access Control
+```javascript
+// middleware/rbac.js
+const rbac = (allowedRoles) => {
+  return (req, res, next) => {
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        error: 'Access denied. Insufficient permissions.' 
+      });
+    }
+    next();
+  };
+};
+
+// Usage: rbac(['admin', 'hr'])
+```
+
+---
+
+## 5️⃣ API Routes Structure
+
+### Core API Endpoints
+```javascript
+// routes/api/index.js
+const express = require('express');
+const router = express.Router();
+
+// Mount all routes
+router.use('/auth', require('./auth'));
+router.use('/users', require('./users'));
+router.use('/okrs', require('./okrs'));
+router.use('/time', require('./time'));
+router.use('/feedback', require('./feedback'));
+router.use('/reviews', require('./reviews'));
+router.use('/ai', require('./ai'));
+
+module.exports = router;
+```
+
+### Example Route Implementation
+```javascript
+// routes/api/okrs.js
+const express = require('express');
+const router = express.Router();
+const auth = require('../../middleware/auth');
+const rbac = require('../../middleware/rbac');
+const okrController = require('../../controllers/okrController');
+
+// @route   POST /api/v1/okrs
+// @desc    Create new OKR
+// @access  Admin, HR, Manager
+router.post('/', 
+  auth, 
+  rbac(['admin', 'hr', 'manager']), 
+  okrController.createOKR
+);
+
+// @route   GET /api/v1/okrs
+// @desc    Get OKRs (filtered by permissions)
+// @access  All authenticated users
+router.get('/', auth, okrController.getOKRs);
+
+// @route   PATCH /api/v1/okrs/:id
+// @desc    Update OKR
+// @access  Creator or Assignee
+router.patch('/:id', auth, okrController.updateOKR);
+
+module.exports = router;
+```
+
+---
+
+## 6️⃣ AI Integration Service
+
+### AI Service with Fallback
+```javascript
+// services/aiService.js
+const axios = require('axios');
+const logger = require('../utils/logger');
+
+class AIService {
+  constructor() {
+    this.openaiClient = axios.create({
+      baseURL: 'https://api.openai.com/v1',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    this.geminiClient = axios.create({
+      baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+      params: {
+        key: process.env.GEMINI_API_KEY
+      }
+    });
+  }
+
+  async generateReviewSuggestion(reviewData) {
+    try {
+      // Try OpenAI first
+      const response = await this.openaiClient.post('/chat/completions', {
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful HR assistant generating performance review suggestions.'
+          },
+          {
+            role: 'user',
+            content: `Generate a professional review suggestion based on: ${JSON.stringify(reviewData)}`
+          }
+        ],
+        max_tokens: 500
+      });
+
+      return {
+        success: true,
+        suggestion: response.data.choices[0].message.content,
+        provider: 'openai'
+      };
+      
+    } catch (openAIError) {
+      logger.warn('OpenAI failed, trying Gemini fallback', openAIError.message);
+      
+      try {
+        // Fallback to Gemini
+        const response = await this.geminiClient.post('/models/gemini-pro:generateContent', {
+          contents: [{
+            parts: [{
+              text: `Generate a professional review suggestion based on: ${JSON.stringify(reviewData)}`
+            }]
+          }]
+        });
+
+        return {
+          success: true,
+          suggestion: response.data.candidates[0].content.parts[0].text,
+          provider: 'gemini'
+        };
+        
+      } catch (geminiError) {
+        logger.error('Both AI providers failed', { openAIError, geminiError });
+        return {
+          success: false,
+          error: 'AI services temporarily unavailable'
+        };
+      }
+    }
+  }
+
+  // AI Scoring Algorithm (as per PRD)
+  calculateAIScore(components) {
+    const {
+      recentFeedbackScore = 0,
+      okrScore = 0,
+      peerFeedbackScore = 0,
+      managerFeedbackScore = 0,
+      selfAssessmentScore = 0,
+      tenureAdjustmentScore = 0
+    } = components;
+
+    const finalScore = (
+      (recentFeedbackScore * 0.35) +
+      (okrScore * 0.25) +
+      (peerFeedbackScore * 0.15) +
+      (managerFeedbackScore * 0.15) +
+      (selfAssessmentScore * 0.05) +
+      (tenureAdjustmentScore * 0.05)
+    );
+
+    return Math.round(finalScore * 100) / 100; // Round to 2 decimal places
+  }
+}
+
+module.exports = new AIService();
+```
+
+---
+
+## 7️⃣ Environment Configuration
+
+```bash
+# .env.example
+# Server
+PORT=5000
+NODE_ENV=development
+
+# Database
+MONGODB_URI=mongodb://localhost:27017/performance-review-platform
+MONGODB_URI_PROD=mongodb+srv://username:password@cluster.mongodb.net/performance-review-platform
+
+# JWT
+JWT_SECRET=your-super-secret-jwt-key-min-32-chars
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_SECRET=your-refresh-secret-key
+JWT_REFRESH_EXPIRES_IN=7d
+
+# AI Services
+OPENAI_API_KEY=sk-your-openai-api-key
+GEMINI_API_KEY=your-gemini-api-key
+
+# Email
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+
+# Frontend (CORS)
+FRONTEND_URL=http://localhost:3000
+FRONTEND_URL_PROD=https://your-domain.com
+```
+
+---
+
+## 8️⃣ Core Middleware Stack
+
+```javascript
+// server.js
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const morgan = require('morgan');
+const connectDB = require('./src/config/database');
+const errorHandler = require('./src/middleware/errorHandler');
+
+const app = express();
+
+// Connect Database
+connectDB();
+
+// Security
+app.use(helmet());
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true
+}));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use('/api/', limiter);
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Logging
+app.use(morgan('combined'));
+
+// Routes
+app.use('/api/v1', require('./src/routes/api'));
+
+// Error handling
+app.use(errorHandler);
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+```
+
+---
+
+## 9️⃣ Production Deployment
+
+### Database Indexes
+```javascript
+// Create these indexes for performance
+db.users.createIndex({ "email": 1 });
+db.users.createIndex({ "managerId": 1 });
+db.okrs.createIndex({ "assignedTo": 1, "status": 1 });
+db.feedback.createIndex({ "toUserId": 1, "createdAt": -1 });
+db.reviewSubmissions.createIndex({ "reviewCycleId": 1, "revieweeId": 1 });
+db.timeEntries.createIndex({ "userId": 1, "date": -1 });
+```
+
+### PM2 Configuration
+```javascript
+// ecosystem.config.js
+module.exports = {
+  apps: [{
+    name: 'performance-review-api',
+    script: 'server.js',
+    instances: 'max',
+    exec_mode: 'cluster',
+    env: {
+      NODE_ENV: 'development'
+    },
+    env_production: {
+      NODE_ENV: 'production'
+    }
+  }]
+};
+```
+
+---
+
+## ✅ Key Features Implemented
+
+✅ **Complete CRUD operations** for all entities  
+✅ **AI scoring formula** with OpenAI/Gemini fallback  
+✅ **Role-based permissions** (Admin, HR, Manager, Employee)  
+✅ **Time tracking** with validation and analytics  
+✅ **Review cycle management** with grace periods  
+✅ **Anonymous feedback** with 3-reviewer minimum  
+✅ **Manager chain tracking** with history  
+✅ **Soft deletes** for audit compliance  
+✅ **Email notifications** with user preferences  
+✅ **JWT authentication** with refresh tokens  
+✅ **Input validation** with Zod  
+✅ **Error handling** and logging  
+✅ **Performance indexes** for MongoDB  
+
+---
+
+
+**This architecture provides a complete, production-ready Express.js + MongoDB backend that fully implements the PRD requirements with clean, maintainable code.**

@@ -1,0 +1,230 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 🎯 PRP Clone - Project Implementation TODO
+
+## 📋 Phase 0: Project Setup & Infrastructure
+### Backend Setup
+- [x] 1. Initialize Express.js project with JavaScript
+- [x] 2. Setup MongoDB connection with Mongoose
+- [x] 3. Configure environment variables & validation
+- [x] 4. Setup basic middleware (cors, helmet, etc.)
+- [x] 5. Implement global error handling
+- [x] 6. Setup logging with Winston
+- [x] 7. Add Zod request/response validation middleware
+- [x] 8. Configure Vercel serverless deployment (vercel.json)
+- [x] 9. Create health check endpoint
+- [x] 10. Setup Jest for testing
+- [x] 11. Configure ESLint + Prettier
+
+### Frontend Setup
+- [x] 1. Initialize Next.js 14 project with JavaScript
+- [x] 2. Setup TailwindCSS + ShadCN UI
+- [x] 3. Configure environment variables
+- [x] 4. Setup basic layout components
+- [x] 5. Configure axios for API calls
+- [x] 6. Setup testing environment (Jest + React Testing Library)
+- [x] 7. Configure ESLint + Prettier
+
+### Integration & Testing
+- [x] 1. Test backend-frontend connection
+- [x] 2. Setup CI/CD pipeline
+- [ ] 3. Setup GitHub repos & push code
+- [ ] 4. Deploy backend & frontend to Vercel (staging)
+- [ ] 5. Create basic integration tests
+- [ ] 6. Document setup process
+
+## 📋 Phase 1: Authentication & User Management
+
+### Backend Tasks
+- [ ] Implement User model with Mongoose
+- [ ] Setup JWT authentication middleware
+- [ ] Create auth routes (login, register, refresh)
+- [ ] Define Zod schemas for Auth/User endpoints
+- [ ] Implement password hashing with bcrypt
+- [ ] Create user CRUD operations
+- [ ] Setup role-based middleware
+- [ ] Write auth unit tests
+
+### Frontend Tasks
+- [ ] Create login page with form validation
+- [ ] Implement JWT token management
+- [ ] Create protected route wrapper
+- [ ] Setup auth context & hooks
+- [ ] Create user profile page
+- [ ] Implement role-based component rendering
+- [ ] Write auth component tests
+
+### Integration & Testing
+- [ ] Test complete auth flow
+- [ ] Test role-based access
+- [ ] Document auth system
+
+## 📋 Phase 2: Organization Structure
+
+### Backend Tasks
+- [ ] Create Department model & routes
+- [ ] Create Team model & routes
+- [ ] Implement org hierarchy logic
+- [ ] Setup manager-report relationships
+- [ ] Create bulk user import API
+- [ ] Write organization unit tests
+
+### Frontend Tasks
+- [ ] Create org chart visualization
+- [ ] Build department management UI
+- [ ] Build team management UI
+- [ ] Create bulk user import interface
+- [ ] Implement org hierarchy navigation
+- [ ] Write organization component tests
+
+### Integration & Testing
+- [ ] Test org structure CRUD
+- [ ] Test hierarchy relationships
+- [ ] Document org structure
+
+## 📋 Phase 3: OKR System
+
+### Backend Tasks
+- [ ] Create OKR model & routes
+- [ ] Implement OKR cascading logic
+- [ ] Setup progress tracking
+- [ ] Create time tracking system
+- [ ] Write OKR unit tests
+
+### Frontend Tasks
+- [ ] Create OKR dashboard
+- [ ] Build OKR creation/edit forms
+- [ ] Implement OKR progress tracking UI
+- [ ] Create time tracking interface
+- [ ] Write OKR component tests
+
+### Integration & Testing
+- [ ] Test OKR CRUD operations
+- [ ] Test cascading logic
+- [ ] Document OKR system
+
+## 📋 Phase 4: Review Cycles
+
+### Backend Tasks
+- [ ] Create Review Cycle model & routes
+- [ ] Implement review assignment logic
+- [ ] Setup review templates
+- [ ] Create review analytics
+- [ ] Write review unit tests
+
+### Frontend Tasks
+- [ ] Create review cycle dashboard
+- [ ] Build review forms
+- [ ] Implement review status tracking
+- [ ] Create analytics visualizations
+- [ ] Write review component tests
+
+### Integration & Testing
+- [ ] Test review cycle flow
+- [ ] Test review analytics
+- [ ] Document review system
+
+## 📋 Phase 5: Feedback System
+
+### Backend Tasks
+- [ ] Create Feedback model & routes
+- [ ] Implement feedback privacy logic
+- [ ] Setup feedback moderation
+- [ ] Create feedback analytics
+- [ ] Write feedback unit tests
+
+### Frontend Tasks
+- [ ] Create feedback dashboard
+- [ ] Build feedback forms
+- [ ] Implement feedback moderation UI
+- [ ] Create feedback analytics views
+- [ ] Write feedback component tests
+
+### Integration & Testing
+- [ ] Test feedback flow
+- [ ] Test moderation system
+- [ ] Document feedback system
+
+## 📋 Phase 6: AI Integration
+
+### Backend Tasks
+- [ ] Setup OpenAI/Gemini integration
+- [ ] Implement AI suggestion system
+- [ ] Create fallback mechanisms
+- [ ] Write AI service unit tests
+
+### Frontend Tasks
+- [ ] Create AI suggestion UI
+- [ ] Implement real-time AI feedback
+- [ ] Build AI settings interface
+- [ ] Write AI component tests
+
+### Integration & Testing
+- [ ] Test AI suggestions
+- [ ] Test fallback system
+- [ ] Document AI integration
+
+## 📋 Phase 7: Analytics & Reporting
+
+### Backend Tasks
+- [ ] Create analytics aggregation logic
+- [ ] Setup export functionality
+- [ ] Implement report generation
+- [ ] Write analytics unit tests
+
+### Frontend Tasks
+- [ ] Create analytics dashboard
+- [ ] Build export interface
+- [ ] Implement data visualizations
+- [ ] Write analytics component tests
+
+### Integration & Testing
+- [ ] Test analytics generation
+- [ ] Test export functionality
+- [ ] Document analytics system
+
+## 📋 Phase 8: Final Integration & Polish
+
+### Backend Tasks
+- [ ] Optimize database queries
+- [ ] Implement caching
+- [ ] Setup monitoring
+- [ ] Security audit
+
+### Frontend Tasks
+- [ ] Performance optimization
+- [ ] UI/UX polish
+- [ ] Accessibility audit
+- [ ] Cross-browser testing
+
+### Integration & Testing
+- [ ] End-to-end testing
+- [ ] Load testing
+- [ ] Final documentation
+- [ ] Deployment preparation
+
+## 🔍 Testing Strategy for Each Phase
+1. Unit Tests: Test individual components/functions
+2. Integration Tests: Test feature workflows
+3. End-to-End Tests: Test complete user journeys
+4. Performance Tests: Test under load
+5. Security Tests: Test for vulnerabilities
+
+## 📝 Documentation Requirements for Each Phase
+1. API Documentation
+2. Component Documentation
+3. Test Documentation
+4. User Documentation
+5. Deployment Documentation
+
+## ⚠️ Important Notes
+- Each phase should be completed with full testing before moving to next
+- Keep security in mind at every step
+- Document as you go
+- Regular code reviews
+- Regular backups
+- Follow JavaScript best practices
+- Maintain consistent code style

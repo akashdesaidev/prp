@@ -1,0 +1,115 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 🎨 Frontend Requirements — AI Performance Platform
+
+## Stack
+- **Framework**: Next.js 15 App Router + React 19
+- **Styling**: TailwindCSS + ShadCN UI
+- **Icons**: Lucide React
+- **Font**: Inter (Google Fonts)
+- **Auth**: OAuth (Future - Google/Microsoft SSO)
+
+## Design System
+
+### Colors
+```css
+Primary: #4F46E5 (Indigo 600)
+Primary Hover: #4338CA (Indigo 700)
+Secondary: #6366F1 (Indigo 500)
+Success: #22C55E (Green 500)  
+Error: #EF4444 (Red 500)
+Warning: #F59E0B (Amber 500)
+Text Primary: #111827 (Gray 900)
+Text Secondary: #6B7280 (Gray 500)
+Background: #F9FAFB (Gray 50)
+Card Background: #FFFFFF
+Border: #E5E7EB (Gray 200)
+```
+
+### Spacing (4px scale)
+```css
+xs: 4px, sm: 8px, md: 16px, lg: 24px, xl: 32px, 2xl: 48px
+```
+
+### Layout Patterns (Lattice-inspired)
+- Left sidebar navigation
+- Fixed top header  
+- Card-based content panels
+- Modal overlays for forms
+- Multi-step flows for reviews
+- Floating modals for AI features
+- Hover-based menus & dropdowns
+- Filters & tabs for data lists
+- Toast notifications
+
+### Core Components
+```
+- Card, Modal, Drawer, Toast
+- Form, Table, Tabs, DatePicker
+- Button, Input, Select, Checkbox
+- Avatar, Badge, Progress, Skeleton
+- Navigation, Breadcrumb, Pagination
+```
+
+### Loading States & Skeletons
+```css
+/* Shimmer Animation */
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+}
+```
+- Page-level `loading.tsx` files
+- Component-level `isLoading` states  
+- Error boundaries with fallbacks
+- Skeleton patterns: Dashboard cards, table rows, forms
+
+### File Structure
+```
+components/
+  ui/           # ShadCN components
+  common/       # Reusable components
+  forms/        # Form components
+app/
+  (auth)/       # Auth routes (future)
+  dashboard/    # Main app
+  api/          # API routes
+```
+
+### Conventions & Architecture
+- Server Components (RSC) by default
+- `'use client'` only when needed
+- Named exports for components
+- `handle*` prefix for event handlers
+- `is*` / `has*` for boolean props
+- `kebab-case` for directories
+- JavaScript strict linting (ESLint AirBnB/Prettier)
+- Optimize for Web Vitals & performance
+
+## Quick Setup
+```bash
+npx create-next-app@latest . --tailwind --app
+npx shadcn-ui@latest init
+npm install lucide-react @next/font
+
+# Tailwind config for Inter font
+fontFamily: {
+  sans: ['Inter', 'ui-sans-serif', 'system-ui']
+}
+```
+
+## Design Inspiration
+- **Style**: Lattice SaaS B2B minimalism
+- **Feel**: Professional, trustworthy, slightly playful
+- **Target**: Enterprise performance management
+
+## References
+- [ShadCN UI](https://ui.shadcn.com)
+- [Tailwind](https://tailwindcss.com)
+- [Next.js](https://nextjs.org/docs)
+
+- [Lucide Icons](https://lucide.dev)

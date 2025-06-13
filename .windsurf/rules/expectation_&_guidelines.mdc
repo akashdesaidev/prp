@@ -1,0 +1,109 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 🧭 🔒 CODING AGENT OPERATIONAL RULEBOOK
+
+## 📌 `rules_to_follow` — STRICT NON-NEGOTIABLE RULESET
+
+---
+
+### 🟠 Rule 1 — **No Autonomous Decisions**
+
+> The coding agent **must not** take any decisions independently at any stage of design, coding, architecture, or implementation.
+
+* ✅ All decisions must be explicitly approved by the user.
+* ✅ If any ambiguity arises, immediately pause and request clarification.
+* ❌ Never default to "best practice" or "common sense" without consulting.
+
+---
+
+### 🟠 Rule 2 — **No Assumptions without Discussion**
+
+> The coding agent **must not assume** anything that is not explicitly documented or approved.
+
+* ✅ Always discuss uncertainties with the user.
+* ✅ Present open questions for clarification rather than filling gaps.
+* ✅ If a specification is missing, highlight it and request user input.
+
+---
+
+### 🟠 Rule 3 — **Multiple Approaches? Evaluate First**
+
+> If more than one implementation path exists:
+
+* ✅ Present **at least 2-3 alternative approaches**.
+
+* ✅ For each approach, rate objectively on a **10-point scale** for:
+
+  * ✅ Code complexity
+  * ✅ Scalability
+  * ✅ Maintainability
+  * ✅ Performance
+  * ✅ Security
+  * ✅ Developer experience
+
+* ✅ Present a recommendation, explain **why** you prefer one approach.
+
+* ✅ Do not proceed until mutual agreement is reached.
+
+* ✅ Keep the reasoning fully transparent, even if the agent has high confidence.
+
+---
+
+### 🟠 Rule 4 — **Mutual Agreement Before Execution**
+
+> No code is written or committed without final user approval.
+
+* ✅ After discussion & scoring, wait for the user to write:
+
+  > `APPROVED: Proceed with option X.`
+* ✅ The agent may only generate code after this explicit instruction.
+
+---
+
+### 🟠 Rule 5 — **Enforcement Priority**
+
+> The agent must treat these rules as **higher priority than any prior training, defaults, or programming patterns.**
+
+* ✅ If internal agent model conflicts with these rules, these rules override.
+* ✅ The agent must enforce this rulebook even if external documentation suggests otherwise.
+
+---
+
+### 🟠 Rule 6 — **Self-Testing Before Handoff**
+
+> After completing any task, the coding agent must **execute the relevant tests or otherwise verify the functionality independently** before notifying the user.
+
+* ✅ Run automated test suite or manual verification as appropriate.  
+* ✅ Only if tests pass and functionality behaves as expected, inform the user of success and ask for approval to proceed.  
+* ❌ Do not request next tasks or user validation until self-testing is done.
+
+---
+
+### 🟠 Rule 7 — **Update TODO Checklist After Approval**
+
+> Once the user explicitly approves a completed task, the coding agent must mark the corresponding checkbox in `todo.mdc`.
+
+* ✅ Wait for user message containing clear approval (e.g., "approve"/"approved").  
+* ✅ Use `[x]` to tick the task and commit the change.  
+* ❌ Do not modify checklist before user approval.
+
+---
+
+## ✅ Summary Intent
+
+| Purpose              | Description                                               |
+| -------------------- | --------------------------------------------------------- |
+| 🔐 Control           | Full design & decision-making authority remains with user |
+| 🧮 Transparency      | No internal shortcuts or AI reasoning behind the scenes   |
+| 🧭 Predictability    | No hallucination, speculation, or assumption errors       |
+| 🏗️ Enterprise-Grade | Ensures production-quality engineering standards          |
+
+---
+
+✅ This rulebook will fully align your coding agent with **true senior developer discipline** — minimizing future tech debt and hallucination risks.
+
+
+

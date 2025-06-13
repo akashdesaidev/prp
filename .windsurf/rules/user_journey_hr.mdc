@@ -1,0 +1,146 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# HR User Journey — Full Specification
+
+> **Note**: HR role is distinct from Admin — more operational, less technical authority, but full access to people data.
+
+## 🎯 Primary HR Responsibilities
+
+| Functionality              | Description                           |
+| -------------------------- | ------------------------------------- |
+| User Lifecycle Management  | View & modify employee records        |
+| Role Assignments           | Manage user roles (except Admin role) |
+| Org Structure Management   | Create/modify departments & teams     |
+| Review Cycle Participation | Configure cycles, assign reviewers    |
+| OKR Coordination           | Support OKR cascading, scoring inputs |
+| Feedback Monitoring        | Moderate public/private feedback      |
+| Analytics Access           | Team & department level reports       |
+| Export Permissions         | Export team/org level reports         |
+| Audit Logs                 | View actions but limited edit rights  |
+| Compliance Support         | Monitor policy adherence              |
+
+## 👥 User Management Flow
+
+### View Users
+
+* Full searchable employee directory
+* See:
+  * Roles
+  * Manager
+  * Department / Team
+  * Status (active, inactive)
+* No access to Admin users
+
+### Modify Users
+
+* Can:
+  * Assign/remove roles (except Admin)
+  * Change Department/Team
+  * Change Manager (cannot assign self as manager)
+  * Deactivate/reactivate users
+* Cannot:
+  * Delete users
+  * Edit Admin roles
+
+## 🏢 Organization Management Flow
+
+### Department / Team
+
+* Create new Departments
+* Create new Teams under Departments
+* Edit names, descriptions
+* Soft-delete allowed (same as Admin)
+
+### Hierarchy Integrity
+
+* Cannot create Team without Department
+* Cannot create circular structures
+* Manager reassignment validations apply
+
+## 📈 OKR Management Flow
+
+* Can view Company OKRs (read-only)
+* Create Department and Team level OKRs
+* Cascade to lower levels (manual linking only)
+* Edit Department/Team OKR progress
+* Suggest Company OKRs (approval by Admin)
+
+## 🔄 Review Cycle Management Flow
+
+* Create Review Cycles
+* Assign participants:
+  * Self-assessments
+  * Manager assessments
+  * Peer assessments
+* Enforce 3-day prep period
+* Clone previous cycles
+* Cannot override for emergency cycles (Admin only)
+
+## 💬 Feedback Monitoring Flow
+
+* View:
+  * All public feedback
+  * Private feedback (only within their scope: department/team)
+* Moderate:
+  * Hide inappropriate feedback (soft-delete with reason)
+* Cannot:
+  * Access full org-wide feedback outside assigned scope
+
+## 📊 Analytics Flow
+
+* Dashboard Access:
+  * Department-level OKR progress
+  * Review completion rates
+  * Feedback sentiment
+* Export:
+  * CSV/PDF export within their scope
+* Cannot export full org-wide data
+
+## 🔐 Security Rules
+
+| Action                    | HR Access     |
+| ------------------------- | ------------- |
+| Create/Edit Admin         | ❌             |
+| Assign Admin Role         | ❌             |
+| Access AI Keys            | ❌             |
+| Configure System Settings | ❌             |
+| Export Audit Logs         | ❌             |
+| Export Department Data    | ✅             |
+| View Audit Logs           | ✅ (read-only) |
+
+## 🚩 Edge Case Handling
+
+| Edge Case                           | Resolution                            |
+| ----------------------------------- | ------------------------------------- |
+| Manager field left blank            | Validation error                      |
+| Manager assigned outside department | Allowed                               |
+| Duplicate Team names                | Allowed (under different departments) |
+| Role conflicts (Manager & HR)       | Allowed                               |
+| Admin override required             | Escalate to Admin                     |
+
+## ⚠️ Developer-Safe Golden Rules
+
+* ✅ No department/team deletion — soft delete only.
+* ✅ Cannot assign Admin role.
+* ✅ Cannot see global system settings.
+* ✅ HR sees only their assigned organization scope.
+* ✅ Department-level row filtering always applied.
+
+## 📝 Key API Touchpoints
+
+| Endpoint             | Method            | Responsibility              |
+| -------------------- | ----------------- | --------------------------- |
+| `/departments`       | `POST/PUT/DELETE` | Create/edit departments     |
+| `/teams`             | `POST/PUT/DELETE` | Create/edit teams           |
+| `/users/{id}`        | `PUT`             | Update user info            |
+| `/roles`             | `PUT`             | Update user roles (limited) |
+| `/okrs`              | `POST/PUT`        | Create/edit OKRs            |
+| `/review-cycles`     | `POST/PUT`        | Create/edit cycles          |
+| `/feedback/moderate` | `PUT`             | Moderate feedback           |
+| `/analytics/export`  | `GET`             | Export data                 |
+| `/audit-logs`        | `GET`             | Read-only audit logs        |
+
+

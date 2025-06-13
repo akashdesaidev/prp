@@ -1,0 +1,243 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Admin User Journey — Master Specification
+
+**Enterprise-grade, hallucination-proof specification for coding agents**
+
+---
+
+## 🎯 Primary Admin Responsibilities
+
+| Functionality | Description |
+|---------------|-------------|
+| Organization Setup | Create departments, teams, reporting structure |
+| User Management | Invite users, bulk import via CSV, assign roles, manage reporting chains |
+| Review Cycle Management | Create, configure, and monitor performance review cycles |
+| OKR Management | Set Company OKRs and manage cascading structure |
+| Feedback Oversight | View, moderate, and audit all feedback |
+| AI Service Configuration | Manage API keys for OpenAI, Gemini |
+| System Settings | Configure environment, security settings, exports, audit |
+| Analytics Access | Full access to all dashboards, sentiment, engagement, exports |
+| Audit Logs | Full visibility into audit trails for all actions |
+| Emergency Controls | Emergency override cycles, data corrections |
+
+---
+
+## 🏗 Admin Setup Flow
+
+### Company Setup Flow
+
+- Admin logs in (OAuth: Google/Microsoft)
+- Admin sets up:
+  - Company name
+  - Organization logo (optional for now)
+  - Default timezone, currency, fiscal year settings
+- System initializes `organization_id` globally
+
+### Department / Team Setup
+
+- **Create Department**
+  - Name (unique under organization)
+- **Create Team**
+  - Belongs to department (1:1 enforced)
+- **Deactivate** allowed (soft-delete pattern applied)
+
+---
+
+## 👥 User Management Flow
+
+### Add Users Individually
+
+- Invite via email
+- Assign:
+  - Role(s)
+  - Department
+  - Team
+  - Manager (selected via dropdown or email lookup)
+- Invite token expires after 7 days
+
+### Bulk CSV Upload
+
+**CSV format:**
+```csv
+email,first_name,last_name,department,team,role,manager_email
+```
+
+**System behavior:**
+- Validates CSV pre-import
+- Detects conflicts (duplicate email, invalid manager)
+- Displays summary report (import success/failures)
+- Logs import activity
+
+### Modify Users
+
+- Edit roles, reporting manager, department/team
+- Soft-deactivate user (no hard delete)
+
+### Role Assignment
+
+- Multiple roles per user supported (junction table)
+- `admin`, `hr`, `manager`, `employee` enum enforced
+
+---
+
+## 📈 OKR Management Flow
+
+- Create Company OKRs → cascading support
+- Assign Department → Team → Individual OKRs manually
+- `parent_okr_id` drives cascade
+- Progress auto-calculates upward but can be manually adjusted if needed
+- Editable scoring (1-10 scale)
+
+---
+
+## 🔄 Review Cycle Management
+
+**Create new cycle:**
+- Cycle type: quarterly, annual, custom
+- Start & end dates
+- Minimum 3 days prep buffer
+- Review type templates
+
+**Additional features:**
+- Clone previous cycle feature supported
+- Mid-cycle participant add/remove allowed:
+  - Removed users' data retained
+- Emergency override: allow up to 2 concurrent cycles per employee
+
+---
+
+## 💬 Feedback Oversight Flow
+
+**View:**
+- All feedback — public & private
+- Private feedback flagged when viewed
+
+**Moderate:**
+- Soft-delete inappropriate feedback (logs reason)
+
+**Skill tags managed freely (user-generated)**
+
+---
+
+## 🤖 AI System Management Flow
+
+**Set API keys for:**
+- OpenAI (primary)
+- Gemini (fallback)
+
+**Security & monitoring:**
+- Keys stored encrypted (AES-256)
+- Test API keys on input
+- AI error logs accessible:
+  - Feature, error type, fallback used, user involved
+
+---
+
+## 📊 Analytics Flow
+
+**Full org-level dashboards:**
+- OKR Progress
+- Feedback sentiment trends
+- Review completion status
+- Engagement metrics
+
+**Export:**
+- CSV/PDF for any report
+- Audit-log of export actions
+
+---
+
+## 📝 Audit Logs
+
+**Permanent record of:**
+- User changes
+- Review cycles
+- OKRs
+- Feedback moderation
+- Admin system changes
+
+**Features:**
+- Fully exportable
+- Database partitioning + archival strategy after 2 years
+
+---
+
+## 🔐 Security & Compliance
+
+- All sensitive changes logged
+- Role-based access enforced at API level
+- OAuth2 login only (no username/password support)
+- Full Row Level Security (Supabase RLS enabled)
+- Soft-deletes across entire system
+- No data deletion allowed
+
+---
+
+## 🚨 Error States
+
+- Overlapping cycles = hard validation failure
+- Missing manager = cannot assign cycle
+- CSV upload with invalid manager email → error row
+- Emergency cycles limited to 2
+
+---
+
+## 🚩 Edge Case Handling
+
+| Edge Case | Resolution |
+|-----------|------------|
+| Self as manager | Blocked at validation |
+| Department without team | Allowed |
+| Team without department | Disallowed |
+| Circular reporting | Blocked |
+| Duplicate OKR titles | Allowed (titles not unique key) |
+| Missing fields on bulk upload | Row skipped, reported |
+
+---
+
+## ⚠️ Developer-Safe Golden Rules
+
+✅ **Critical implementation guidelines:**
+
+- No implicit defaults for reporting chains — always explicit manager assigned
+- No auto-creation of OKRs on cascading — only parent linking via `parent_okr_id`
+- No deletion of rows — soft-delete everywhere
+- All multi-tenancy data segregated with `organization_id` even for single-tenant MVP
+- All date/time stored as UTC
+
+---
+
+## 🎯 Admin Flow Priority for Development
+
+| Phase | Features |
+|-------|----------|
+| **Phase 1** | Org setup, user management, CSV imports |
+| **Phase 2** | OKR hierarchy, review cycle creation |
+| **Phase 3** | Feedback moderation, AI key management |
+| **Phase 4** | Analytics, audit logs |
+
+---
+
+## ✅ Specification Status
+
+**This Admin Journey specification is:**
+- ✅ Complete and unambiguous
+- ✅ Ready for coding agent implementation
+- ✅ Enterprise-grade with proper security considerations
+- ✅ Includes all edge cases and error handling
+- ✅ Zero hallucination zones remaining
+
+---
+
+## Next Steps
+
+Ready to proceed with additional journey specifications:
+
+- 🧑‍💼 **HR Journey Spec**
+- 👨‍💼 **Manager Journey Spec** 
+- 👩‍💼 **Employee Journey Spec**
+- 💻 **Frontend UI Wireframe Flow**

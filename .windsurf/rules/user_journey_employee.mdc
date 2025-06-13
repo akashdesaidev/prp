@@ -1,0 +1,150 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Employee User Journey — Full Specification
+
+> Employees = Individual Contributors  
+> Their primary interactions are completing self reviews, giving/receiving peer feedback, updating OKRs, and receiving AI-powered coaching.
+
+## 🎯 Primary Employee Responsibilities
+
+| Functionality | Description                                         |
+| ------------- | --------------------------------------------------- |
+| Self Reviews  | Complete self-assessments during review cycles      |
+| Peer Reviews  | Nominate peers, write peer reviews                  |
+| Feedback      | Give and receive continuous feedback                |
+| OKRs          | View and update personal/team OKRs                  |
+| Time Tracking | Log daily time spent on objectives                  |
+| AI Coaching   | Access personalized AI-generated coaching summaries |
+| Analytics     | View personal review history, OKR progress          |
+
+## 🔄 Review Cycle Flow
+
+### Self Review
+
+* Triggered only when review cycle starts
+* Locked after submission deadline
+
+### Peer Nominations
+
+* Can nominate peers (within org directory)
+* Limited nomination count (configured per cycle)
+* Requires Manager approval
+
+### Peer Reviews
+
+* Complete peer reviews after peer assignment approval
+* Anonymous by default (configurable by Admin)
+
+### Upward Reviews (optional)
+
+* Review their manager if cycle includes upward review
+
+## 📈 OKR Flow
+
+* View:
+  * Company, Department, Team OKRs (read-only)
+  * Assigned personal OKRs
+  * Time allocation targets for OKRs
+* Update:
+  * Progress reporting for own OKRs (score & comment fields)
+  * Daily/weekly time entries for OKRs
+* AI Assistance:
+  * Suggest key results wording
+  * Smart check-in suggestions
+  * Time allocation recommendations
+
+## 💬 Continuous Feedback Flow
+
+| Action                | Rule                                     |
+| --------------------- | ---------------------------------------- |
+| Give feedback         | To any user (public or private)          |
+| Receive feedback      | Notification & inbox UI                  |
+| Edit feedback         | Until submitted; no post-submission edit |
+| Delete feedback       | ❌ (soft delete only by Admin/Manager)    |
+| View private feedback | Only recipient + Admin                   |
+| AI Assistance         | Tone analysis, suggested coaching        |
+
+## 📊 Personal Analytics Flow
+
+| Report          | Scope                                   |
+| --------------- | --------------------------------------- |
+| Review history  | All previous review cycles              |
+| OKR progress    | Current and historical OKRs             |
+| Time tracking   | Time allocation and utilization metrics |
+| Feedback trends | Sentiment analysis summary (AI powered) |
+
+## 🔐 Security & Permissions Rules
+
+| Action                            | Employee Access           |
+| --------------------------------- | ------------------------- |
+| View other teams                  | ❌                         |
+| Edit org structure                | ❌                         |
+| Assign roles                      | ❌                         |
+| Export data                       | ❌                         |
+| View audit logs                   | ❌                         |
+| Delete reviews                    | ❌                         |
+| View private feedback from others | ❌                         |
+| Manage AI settings                | ❌                         |
+| Feedback visibility               | Only own feedback threads |
+
+## 🚩 Edge Case Handling
+
+| Edge Case                 | Resolution                               |
+| ------------------------- | ---------------------------------------- |
+| Missed review deadline    | Marked as incomplete                     |
+| Duplicate peer nomination | Deduplicated at submission               |
+| Peer declines nomination  | Notify employee to nominate replacement  |
+| Feedback abuse            | Escalates to Admin for moderation        |
+| Changing teams mid-cycle  | Retain historical manager for that cycle |
+
+## 📝 AI Coaching Prompts
+
+* Auto-generated summaries after review cycle ends
+* Personalized suggestions for:
+  * Skill development
+  * Strengths to focus on
+  * Areas to improve
+* Admins & Managers see different AI views (employees see their own)
+
+## 🧪 Developer Golden Rules
+
+* ✅ Employees only see their own data unless receiving public feedback
+* ✅ No access to reporting structures
+* ✅ Strict role-based access control enforced on every query
+* ✅ Full audit logs for any write action
+* ✅ No cross-team visibility
+
+## 📩 Key API Touchpoints
+
+| Endpoint                           | Method     | Responsibility                             |
+| ---------------------------------- | ---------- | ------------------------------------------ |
+| `/review-cycles/self`              | `GET/PUT`  | Self-review access & submission            |
+| `/review-cycles/peers/nominations` | `POST/GET` | Nominate peers                             |
+| `/review-cycles/peers/reviews`     | `POST/PUT` | Submit peer reviews                        |
+| `/feedback/give`                   | `POST`     | Give feedback                              |
+| `/feedback/received`               | `GET`      | View received feedback                     |
+| `/okrs/self`                       | `GET/PUT`  | Personal OKRs progress update              |
+| `/analytics/self`                  | `GET`      | View personal analytics                    |
+| `/ai/coaching`                     | `GET`      | Retrieve AI-generated coaching suggestions |
+
+## ⏱️ Time Tracking Flow
+
+* Daily Time Entry:
+  * Log hours spent on each OKR/key result
+  * Categorize time (direct work, planning, collaboration, review)
+  * Add notes/description for entries
+* Weekly View:
+  * Bulk time entry via weekly timesheet
+  * View time allocation vs targets
+  * Receive alerts for under/over allocation
+* Time Analytics:
+  * Personal time utilization dashboard
+  * Time vs progress correlation
+  * Historical time tracking data
+
+---
+
+ 
