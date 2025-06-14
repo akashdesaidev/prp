@@ -103,9 +103,21 @@ router.post(
 );
 
 // @route   PUT /api/v1/review-cycles/:id
-// @desc    Update review cycle
+// @desc    Update review cycle (full update)
 // @access  Admin, HR
 router.put(
+  '/:id',
+  auth,
+  rbac(['admin', 'hr']),
+  idValidation,
+  updateReviewCycleValidation,
+  reviewCycleController.updateReviewCycle
+);
+
+// @route   PATCH /api/v1/review-cycles/:id
+// @desc    Update review cycle (partial update)
+// @access  Admin, HR
+router.patch(
   '/:id',
   auth,
   rbac(['admin', 'hr']),

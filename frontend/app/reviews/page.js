@@ -70,7 +70,7 @@ export default function ReviewsPage() {
 
   const handleUpdateCycle = async (id, updates) => {
     try {
-      await api.patch(`/review-cycles/${id}`, updates);
+      await api.put(`/review-cycles/${id}`, updates);
       toast.success('Review cycle updated successfully');
       fetchReviewCycles();
       fetchStats();

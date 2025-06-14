@@ -1,5 +1,6 @@
 import React from 'react';
 import { Menu } from 'lucide-react';
+import NotificationBell from './notifications/NotificationBell';
 
 export default function Header() {
   return (
@@ -8,7 +9,10 @@ export default function Header() {
         <Menu className="h-5 w-5 text-gray-600 dark:text-gray-300" />
         <span>PRP Dashboard</span>
       </div>
-      <div className="text-sm text-gray-500 dark:text-gray-400">v0.1.0</div>
+      <div className="flex items-center space-x-4">
+        <NotificationBell />
+        <div className="text-sm text-gray-500 dark:text-gray-400">v0.1.0</div>
+      </div>
     </header>
   );
 }

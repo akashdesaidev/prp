@@ -1,5 +1,6 @@
 import ReviewCycle from '../models/ReviewCycle.js';
 import User from '../models/User.js';
+import notificationService from '../services/notificationService.js';
 import { validationResult } from 'express-validator';
 
 // Get all review cycles with filtering and pagination
@@ -140,6 +141,19 @@ export const createReviewCycle = async (req, res) => {
 
     await reviewCycle.save();
 
+    // Send notifications to all users about the new review cycle
+    try {
+      const allUsers = await User.find({ isActive: true }).select('_id');
+      const userIds = allUsers.map((user) => user._id);
+
+      if (userIds.length > 0) {
+        await notificationService.notifyReviewCycleCreated(reviewCycle._id, userIds);
+      }
+    } catch (notificationError) {
+      console.error('Failed to send review cycle notifications:', notificationError);
+      // Don't fail the request if notification fails
+    }
+
     res.status(201).json({
       success: true,
       message: 'Review cycle created successfully',
@@ -168,6 +182,7 @@ export const updateReviewCycle = async (req, res) => {
     }
 
     const reviewCycle = await ReviewCycle.findById(req.params.id);
+
     if (!reviewCycle) {
       return res.status(404).json({
         success: false,
@@ -190,7 +205,8 @@ export const updateReviewCycle = async (req, res) => {
       'reviewTypes',
       'minPeerReviewers',
       'maxPeerReviewers',
-      'questions'
+      'questions',
+      'isEmergency'
     ];
 
     // Only allow status updates for specific transitions

@@ -19,6 +19,10 @@ import reviewSubmissionRoutes from './src/routes/reviewSubmissions.js';
 import feedbackRoutes from './src/routes/feedback.js';
 import aiRoutes from './src/routes/ai.js';
 import settingsRoutes from './src/routes/settings.js';
+import analyticsRoutes from './src/routes/api/analytics.js';
+import monitoringRoutes from './src/routes/monitoring.js';
+import notificationRoutes from './src/routes/notifications.js';
+import monitoringService from './src/services/monitoringService.js';
 
 // Load env vars
 dotenv.config();
@@ -51,9 +55,20 @@ app.use(express.urlencoded({ extended: true }));
 // Logging middleware
 app.use(morgan('combined'));
 
+// Monitoring middleware
+app.use(monitoringService.requestTracker());
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK' });
+});
+
+// Debug endpoint
+app.get('/api/debug', (req, res) => {
+  res.json({
+    message: 'Debug endpoint working',
+    routes: app._router.stack.map((r) => r.regexp.toString())
+  });
 });
 
 // API routes
@@ -69,6 +84,9 @@ app.use('/api/review-submissions', reviewSubmissionRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/monitoring', monitoringRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

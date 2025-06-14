@@ -1,5 +1,6 @@
 import Feedback from '../models/Feedback.js';
 import User from '../models/User.js';
+import notificationService from '../services/notificationService.js';
 import { validationResult } from 'express-validator';
 
 // Get feedback for a user (received feedback)
@@ -176,6 +177,21 @@ export const createFeedback = async (req, res) => {
       { path: 'toUserId', select: 'firstName lastName email' },
       { path: 'reviewCycleId', select: 'name type' }
     ]);
+
+    // Send notification to recipient (if not anonymous)
+    if (!isAnonymous) {
+      try {
+        await notificationService.notifyFeedbackReceived(
+          feedback._id,
+          toUserId,
+          req.user.id,
+          content
+        );
+      } catch (notificationError) {
+        console.error('Failed to send feedback notification:', notificationError);
+        // Don't fail the request if notification fails
+      }
+    }
 
     res.status(201).json({
       success: true,

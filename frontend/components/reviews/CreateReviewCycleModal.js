@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Calendar, Users, Settings } from 'lucide-react';
+import { X, Calendar, Users, Settings, AlertTriangle } from 'lucide-react';
 import { Button } from '../ui/button';
 
 export default function CreateReviewCycleModal({ isOpen, onClose, onSubmit }) {
@@ -9,6 +9,7 @@ export default function CreateReviewCycleModal({ isOpen, onClose, onSubmit }) {
     startDate: '',
     endDate: '',
     gracePeriodDays: 3,
+    isEmergency: false,
     reviewTypes: {
       selfReview: true,
       peerReview: true,
@@ -87,6 +88,7 @@ export default function CreateReviewCycleModal({ isOpen, onClose, onSubmit }) {
       const start = new Date(formData.startDate);
       const end = new Date(formData.endDate);
       const today = new Date();
+      const threeDaysFromNow = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
 
       if (start >= end) {
         newErrors.endDate = 'End date must be after start date';
@@ -94,6 +96,12 @@ export default function CreateReviewCycleModal({ isOpen, onClose, onSubmit }) {
 
       if (start < today.setHours(0, 0, 0, 0)) {
         newErrors.startDate = 'Start date cannot be in the past';
+      }
+
+      // Check 3-day buffer requirement for non-emergency cycles
+      if (!formData.isEmergency && start < threeDaysFromNow) {
+        newErrors.startDate =
+          'Review cycle must start at least 3 days from now (or mark as emergency)';
       }
     }
 
@@ -125,6 +133,11 @@ export default function CreateReviewCycleModal({ isOpen, onClose, onSubmit }) {
   };
 
   if (!isOpen) return null;
+
+  // Check if start date is within 3 days to show emergency warning
+  const isStartDateSoon =
+    formData.startDate &&
+    new Date(formData.startDate) < new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -229,6 +242,39 @@ export default function CreateReviewCycleModal({ isOpen, onClose, onSubmit }) {
                 />
               </div>
             </div>
+
+            {/* Emergency Cycle Option */}
+            {isStartDateSoon && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                <div className="flex items-start space-x-3">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium text-yellow-800">
+                      Short Notice Review Cycle
+                    </h4>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      This review cycle starts within 3 days. Mark as emergency to proceed.
+                    </p>
+                    <div className="mt-3">
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.isEmergency}
+                          onChange={(e) => handleInputChange('isEmergency', e.target.checked)}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-sm font-medium text-yellow-800">
+                          Mark as Emergency Cycle
+                        </span>
+                      </label>
+                      <p className="text-xs text-yellow-600 mt-1">
+                        Emergency cycles bypass the 3-day advance notice requirement
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Review Types */}
