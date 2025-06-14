@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, X, Check, Clock, AlertCircle, MessageSquare, Calendar } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
 const NotificationCenter = ({ isOpen, onClose }) => {
   const { user } = useAuth();

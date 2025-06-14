@@ -189,17 +189,4 @@ class LoadTestSuite {
   }
 }
 
-// Run load tests
-async function runLoadTests() {
-  const loadTest = new LoadTestSuite();
-
-  try {
-    await loadTest.runLoadTests();
-    process.exit(0);
-  } catch (error) {
-    console.error('Load Test Suite Failed:', error.message);
-    process.exit(1);
-  }
-}
-
 export default LoadTestSuite;

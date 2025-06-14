@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 import OKR from './src/models/OKR.js';
-import User from './src/models/User.js';
 import dotenv from 'dotenv';
 
 dotenv.config();

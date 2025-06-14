@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Mail, Bell, Clock, MessageSquare, Calendar, AlertCircle } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
 const NotificationPreferences = () => {
   const { user } = useAuth();

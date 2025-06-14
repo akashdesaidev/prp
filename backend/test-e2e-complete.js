@@ -49,14 +49,14 @@ class E2ETestSuite {
 
     // Test frontend availability
     try {
-      const frontendResponse = await axios.get(FRONTEND_BASE, { timeout: 5000 });
+      await axios.get(FRONTEND_BASE, { timeout: 5000 });
       console.log('✅ Frontend accessible');
     } catch (error) {
       console.log('⚠️ Frontend not accessible (may be expected in CI)');
     }
 
     // Test database connectivity
-    const dbTest = await axios.get(`${API_BASE}/users`, {
+    await axios.get(`${API_BASE}/users`, {
       validateStatus: (status) => status === 401 // Should require auth
     });
     console.log('✅ Database connectivity verified');
@@ -141,11 +141,11 @@ class E2ETestSuite {
     const headers = { Authorization: `Bearer ${this.authToken}` };
 
     // Test notification listing
-    const notifications = await axios.get(`${API_BASE}/notifications`, { headers });
+    await axios.get(`${API_BASE}/notifications`, { headers });
     console.log(`✅ Notification listing working`);
 
     // Test notification preferences
-    const preferencesResponse = await axios.get(`${API_BASE}/notifications/preferences`, {
+    await axios.get(`${API_BASE}/notifications/preferences`, {
       headers
     });
     console.log('✅ Notification preferences working');
@@ -166,10 +166,8 @@ class E2ETestSuite {
   async testDataIntegrity() {
     console.log('\n9. Testing Data Integrity...');
 
-    const headers = { Authorization: `Bearer ${this.authToken}` };
-
     // Test health endpoint one more time
-    const finalHealth = await axios.get(`${API_BASE}/health`);
+    await axios.get(`${API_BASE}/health`);
     console.log('✅ Final system health check passed');
 
     console.log('✅ All data relationships and integrity checks passed');

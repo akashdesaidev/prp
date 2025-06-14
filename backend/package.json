@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node index.js",
     "start": "node index.js",
+    "build": "npm run lint && npm run test",
     "lint": "eslint . --ext .js",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --detectOpenHandles --forceExit",
     "create-admin": "node scripts/create-admin.js"
