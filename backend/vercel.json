@@ -3,7 +3,7 @@
   "name": "prp-backend",
   "builds": [
     {
-      "src": "index.js",
+      "src": "api/index.js",
       "use": "@vercel/node",
       "config": {
         "maxDuration": 10
@@ -13,39 +13,39 @@
   "routes": [
     {
       "src": "/api/auth/(.*)",
-      "dest": "/index.js"
+      "dest": "/api/index.js"
     },
     {
       "src": "/api/users/(.*)",
-      "dest": "/index.js"
+      "dest": "/api/index.js"
     },
     {
       "src": "/api/okrs/(.*)",
-      "dest": "/index.js"
+      "dest": "/api/index.js"
     },
     {
       "src": "/api/feedback/(.*)",
-      "dest": "/index.js"
+      "dest": "/api/index.js"
     },
     {
       "src": "/api/reviews/(.*)",
-      "dest": "/index.js"
+      "dest": "/api/index.js"
     },
     {
       "src": "/api/time/(.*)",
-      "dest": "/index.js"
+      "dest": "/api/index.js"
     },
     {
       "src": "/api/ai/(.*)",
-      "dest": "/index.js"
+      "dest": "/api/index.js"
     },
     {
       "src": "/api/(.*)",
-      "dest": "/index.js"
+      "dest": "/api/index.js"
     },
     {
       "src": "/(.*)",
-      "dest": "/index.js"
+      "dest": "/api/index.js"
     }
   ],
   "env": {
