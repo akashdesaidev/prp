@@ -1,0 +1,166 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Manager User Journey — Full Specification
+
+> Managers = **People Leaders**  
+> They manage their own teams, participate in review cycles, handle team-level OKRs, and oversee feedback flows. They sit one level below Admin & HR.
+
+## 🎯 Primary Manager Responsibilities
+
+| Functionality      | Description                                     |
+| ------------------ | ----------------------------------------------- |
+| Team Management    | View & manage direct team members               |
+| Review Cycles      | Assign peer reviewers, complete manager reviews |
+| OKR Management     | Set & update team-level OKRs                    |
+| Time Management    | Set time allocations, monitor team utilization  |
+| Feedback Oversight | View team feedback, moderate within team        |
+| AI Insights        | Access AI-generated summaries, suggestions      |
+| Analytics          | Team-level dashboards & progress tracking       |
+| Approvals          | Approve peer feedback selection                 |
+
+## 🏢 Team Management Flow
+
+* View:
+  * Team roster (direct reports only)
+  * Reporting chains, roles, statuses
+* Modify (within their team scope):
+  * Suggest manager changes (send request to HR/Admin)
+  * Suggest role changes (no direct role editing)
+* Deactivate members? ❌ No — escalate to HR/Admin
+
+## 📈 OKR Management Flow
+
+* Create:
+  * Team-level OKRs (cannot create department/company level OKRs)
+  * Time allocation targets for team OKRs
+* Cascade:
+  * Link team OKRs to department OKRs (`parent_okr_id`)
+  * Distribute time allocations to team members
+* Update:
+  * Progress scoring
+  * Check-ins
+  * Time allocation adjustments
+* AI Assistance:
+  * OKR drafting via GPT-powered prompts
+  * Time allocation recommendations
+* Cannot:
+  * Modify department/company OKRs
+
+## 📈 Time Management Flow
+
+* Time Planning:
+  * Set expected time allocations for team OKRs
+  * Define minimum focus time requirements
+  * Adjust allocations based on priorities
+* Monitoring:
+  * Track team time utilization
+  * Review time vs progress correlation
+  * Identify resource allocation issues
+* Reporting:
+  * Team time utilization dashboard
+  * Individual time tracking summaries
+  * Time-based performance metrics
+* Alerts:
+  * Under/over allocation warnings
+  * Resource conflict notifications
+  * Time tracking compliance alerts
+
+## 🔄 Review Cycle Participation Flow
+
+### Self Review
+
+* Complete own self-assessment
+
+### Manager Review
+
+* Complete manager assessments for direct reports
+
+### Peer Review Setup
+
+* Recommend peer reviewers for team members
+* Approve/reject peer review nominations submitted by employees
+
+### Calibration (optional future phase)
+
+* View suggested score normalization reports (AI-assisted)
+
+### Cycle Constraints
+
+| Rule                | Manager Authority             |
+| ------------------- | ----------------------------- |
+| Peer reviewer count | View/approve only             |
+| Review deadlines    | Must comply (cannot override) |
+| Emergency cycles    | No authority                  |
+
+## 💬 Feedback Oversight Flow
+
+* View:
+  * Public & private feedback for direct reports
+* Moderate:
+  * Soft-delete inappropriate team feedback (reason mandatory)
+* Submit:
+  * Provide feedback to team members
+  * Give upward feedback to their own manager
+* AI Assistance:
+  * Sentiment analysis
+  * Suggested coaching tips
+
+## 📊 Analytics Flow
+
+* Dashboards:
+  * Team OKR progress
+  * Review cycle completion rates
+  * Time utilization metrics
+  * Feedback sentiment trends
+  * Individual performance summaries
+* Export:
+  * CSV export for team-level reports
+  * Time tracking reports
+* Cannot access department/org-wide analytics
+
+## 🔐 Security & Permissions Rules
+
+| Action                | Manager Access   |
+| --------------------- | ---------------- |
+| Add/remove users      | ❌                |
+| Change team structure | ❌ (suggest only) |
+| Assign Admin/HR roles | ❌                |
+| Export full org data  | ❌                |
+| Export team data      | ✅                |
+| AI Settings           | ❌                |
+| Audit Logs            | ❌                |
+
+## 🚩 Edge Case Handling
+
+| Edge Case                    | Resolution                    |
+| ---------------------------- | ----------------------------- |
+| Manager change request       | Goes to HR/Admin for approval |
+| Team member leaves org       | HR deactivates user           |
+| Review cycle deadline missed | Auto-escalate to HR/Admin     |
+| Manager feedback conflict    | HR reviews moderation logs    |
+
+## ⚠️ Developer Golden Rules
+
+* ✅ Managers only see their own direct reports.
+* ✅ Cannot directly change reporting structures.
+* ✅ Cannot view or edit AI system configurations.
+* ✅ Full row-level security applied to every query (`WHERE manager_id = current_user.id`)
+* ✅ Manager IDs always validated against user roles.
+
+## 📝 Key API Touchpoints
+
+| Endpoint                 | Method     | Responsibility               |
+| ------------------------ | ---------- | ---------------------------- |
+| `/my-team`               | `GET`      | Fetch team members           |
+| `/okrs/team`             | `POST/PUT` | Create/edit team OKRs        |
+| `/review-cycles/self`    | `GET/PUT`  | Self-assessment              |
+| `/review-cycles/manager` | `GET/PUT`  | Complete manager assessments |
+| `/review-cycles/peers`   | `POST/PUT` | Recommend peers              |
+| `/feedback/team`         | `GET/PUT`  | View/moderate feedback       |
+| `/analytics/team`        | `GET`      | View team-level reports      |
+| `/exports/team`          | `GET`      | Export team reports          |
+
+

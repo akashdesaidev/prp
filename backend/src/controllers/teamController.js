@@ -28,9 +28,19 @@ export const createTeam = async (req, res, next) => {
   }
 };
 
-export const listTeams = async (_req, res, next) => {
+export const listTeams = async (req, res, next) => {
   try {
-    const teams = await Team.find().populate('department', 'name').populate('lead', 'firstName lastName email');
+    const { department } = req.query;
+
+    // Build query filter
+    const filter = {};
+    if (department) {
+      filter.department = department;
+    }
+
+    const teams = await Team.find(filter)
+      .populate('department', 'name')
+      .populate('lead', 'firstName lastName email');
     return res.json(teams);
   } catch (err) {
     return next(err);
@@ -39,7 +49,9 @@ export const listTeams = async (_req, res, next) => {
 
 export const getTeam = async (req, res, next) => {
   try {
-    const team = await Team.findById(req.params.id).populate('department', 'name').populate('lead', 'firstName lastName email');
+    const team = await Team.findById(req.params.id)
+      .populate('department', 'name')
+      .populate('lead', 'firstName lastName email');
     if (!team) return res.status(404).json({ error: 'Team not found' });
     return res.json(team);
   } catch (err) {

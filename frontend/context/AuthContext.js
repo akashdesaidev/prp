@@ -1,9 +1,20 @@
-"use client";
+'use client';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { getAccessToken, isTokenExpired, refreshAccessToken, clearTokens, setTokens } from '../lib/token';
+import {
+  getAccessToken,
+  isTokenExpired,
+  refreshAccessToken,
+  clearTokens,
+  setTokens
+} from '../lib/token';
 import jwtDecode from 'jwt-decode';
 
-const AuthContext = createContext({ user: null, isAuthenticated: false, login: () => {}, logout: () => {} });
+const AuthContext = createContext({
+  user: null,
+  isAuthenticated: false,
+  login: () => {},
+  logout: () => {}
+});
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -17,7 +28,15 @@ export function AuthProvider({ children }) {
     if (token) {
       try {
         const decoded = jwtDecode(token);
-        setUser({ id: decoded.id, role: decoded.role, token });
+        // For now, we'll use mock user data since we don't have full user info in JWT
+        // In a real app, you might fetch user details from API
+        setUser({
+          id: decoded.id,
+          role: decoded.role,
+          firstName: 'John', // Mock data
+          lastName: 'Doe', // Mock data
+          email: 'john.doe@example.com' // Mock data
+        });
       } catch (err) {
         clearTokens();
         setUser(null);

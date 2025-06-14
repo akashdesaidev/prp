@@ -1,0 +1,225 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# AI-Driven Performance Review Platform — Product Requirements
+
+---
+
+## 🚀 Overview
+
+We are building an enterprise-grade, AI-augmented performance management system, inspired by platforms like Lattice and 15Five, to simplify performance management for HR teams, managers, and employees.
+
+This document defines the exact scope for MVP development.
+
+---
+
+## 🎯 Core Modules & Features
+
+### 1️⃣ OKR & Goal Management
+
+* Create, assign, and track Objectives and Key Results.
+* Hierarchical structure supported:
+
+  * Company → Department → Team → Individual OKRs.
+* Roles allowed to create/assign OKRs: Admin, HR, Manager.
+* All users can view OKRs.
+* OKRs tagging supported.
+* Goal comments and updates allowed.
+* Visual progress tracking dashboards.
+
+---
+
+### 2️⃣ Continuous Feedback Module
+
+* Feedback can be given anytime.
+* Public and private feedback options.
+* Feedback can be provided between any two users (all roles).
+* Skill tags are user-created (free tagging).
+* Feedback tagging for:
+
+  * Skills
+  * Company values
+  * Initiatives
+
+---
+
+### 3️⃣ Performance Reviews (360° Reviews)
+
+* Customizable review cycles: Quarterly, Half-Yearly, Annual or fully custom.
+* Only 1 active review cycle allowed per employee.
+* Adding/removing participants mid-cycle supported:
+
+  * If participant is removed, review data for the period they were in cycle remains.
+* Review cycle components:
+
+  * Self-assessment
+  * Peer reviews
+  * Manager reviews
+  * Upward reviews
+* Configurable review templates:
+
+  * Competency-based questions
+  * Open-ended questions
+  * Rating scales
+* Anonymity option for peer reviews.
+* Review workflows: automatic assignments, reminders, approvals.
+
+---
+
+### 4️⃣ Manager–Report Chain Logic
+
+* Single direct manager per employee supported.
+* Automatic chain detection for review assignments.
+* Multiple manager support deferred to future versions.
+
+---
+
+### 5️⃣ Reviewer Workload View
+
+* Managers will have a dashboard to view all pending reviews across their direct and indirect reports.
+
+---
+
+## 🤖 AI-Powered Features
+
+### 6️⃣ Auto-Generated Peer Review Suggestions
+
+* "Suggest Draft" button available when starting peer/manager reviews.
+* AI uses:
+
+  * Past feedback history
+  * OKR/goal progress data
+* No external meeting notes or project data in MVP.
+
+### 7️⃣ Self-Assessment Summarizer
+
+* After employee submits self-assessment, they can click "Summarize" to generate:
+
+  * Key themes
+  * Strengths & weaknesses
+  * Impact statements
+
+### 8️⃣ Sentiment Analysis
+
+* Basic sentiment scoring: positive / neutral / negative.
+* AI flags vague or ambiguous responses.
+
+---
+
+## 📊 Analytics & Dashboards
+
+* Role-specific dashboards:
+
+  * HR Dashboard:
+
+    * Org-wide OKR progress
+    * Review completion status
+    * Company-wide feedback trends
+    * Sentiment trends
+  * Manager Dashboard:
+
+    * Team OKR progress
+    * Team feedback summaries
+    * Pending review statuses
+* Export reports as CSV/PDF.
+
+---
+
+## 🔐 User Roles & Permissions
+
+| Role     | Abilities                                                         |
+| -------- | ----------------------------------------------------------------- |
+| Admin    | Full access                                                       |
+| HR       | Manage review cycles, OKRs, analytics                             |
+| Manager  | Create OKRs, give feedback, review reports                        |
+| Employee | Submit self-assessment, give/receive feedback, view personal OKRs |
+
+---
+
+## 🔔 Notifications & Reminders
+
+* Email reminders for:
+
+  * Pending self-assessment submissions.
+  * Pending peer reviews.
+  * Overdue reviews.
+* Slack notifications fully implemented in MVP.
+* Calendar integrations fully implemented in MVP.
+
+---
+
+## 🌐 Tech Stack
+
+### Frontend
+
+* Next.js
+* TailwindCSS
+* ShadCN UI
+* Full PWA support
+
+### Backend
+
+* Node.js with mongoDB Atlas
+
+### File Uploads
+
+* File upload functionality deferred for future version.
+
+
+### AI/ML Integration
+
+* OpenAI API for:
+
+  * Review suggestion generation
+  * Self-assessment summarization
+  * Sentiment analysis
+* Embedding models for search deferred for future.
+
+### Hosting / Infrastructure
+
+* Vercel for frontend.
+* mongo DB Atlas for database.
+* AWS S3 for future file storage (not implemented in MVP).
+
+---
+
+## 🧪 Deliverables
+
+* ✅ Public GitHub repository
+* ✅ Clean, well-documented codebase
+* ✅ README with:
+
+  * Project overview
+  * AI feature usage instructions
+  * Setup instructions for both local and production
+  * Live demo link
+  * Screenshots/demo video (optional)
+  * Environment variables template (.env.example)
+* ✅ Deployed backend & frontend instance
+
+---
+
+## 🔄 Non-MVP (Future Features)
+
+* Multi-manager support
+* Full skill matrix + competency frameworks
+* AI-powered promotion readiness index
+* Embedding-based smart search across past reviews/feedback
+* Burnout prediction algorithms
+* Private AI Coach Bot
+* Advanced audit logs
+* Advanced reporting builder
+* Document attachments
+
+---
+
+# ✅ End of PRD
+
+---
+
+---
+
+

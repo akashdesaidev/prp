@@ -5,7 +5,8 @@ import User from '../models/User.js';
 
 // Helper functions
 const generateAccessToken = (payload) =>
-  jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+  jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '15m' });
+
 const generateRefreshToken = (payload) =>
   jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
@@ -25,7 +26,7 @@ export const register = async (req, res) => {
     if (user) return res.status(400).json({ error: 'User already exists' });
     const hashed = await bcrypt.hash(password, 10);
     user = await User.create({ email, password: hashed, firstName, lastName });
-        const payload = { id: user._id, role: user.role };
+    const payload = { id: user._id, role: user.role };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
     return res.status(201).json({ accessToken, refreshToken });
@@ -48,7 +49,7 @@ export const login = async (req, res) => {
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ error: 'Invalid credentials' });
-        const payload = { id: user._id, role: user.role };
+    const payload = { id: user._id, role: user.role };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
     return res.json({ accessToken, refreshToken });
@@ -68,6 +69,10 @@ export const refresh = async (req, res) => {
   const { refreshToken } = parse.data;
   try {
     const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+    if (!user || !user.isActive) {
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
     const payload = { id: decoded.id, role: decoded.role };
     const accessToken = generateAccessToken(payload);
     return res.json({ accessToken });
