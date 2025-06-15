@@ -28,16 +28,45 @@ export function AuthProvider({ children }) {
     if (token) {
       try {
         const decoded = jwtDecode(token);
-        // For now, we'll use mock user data since we don't have full user info in JWT
-        // In a real app, you might fetch user details from API
-        setUser({
-          id: decoded.id,
-          role: decoded.role,
-          firstName: 'John', // Mock data
-          lastName: 'Doe', // Mock data
-          email: 'john.doe@example.com' // Mock data
-        });
+
+        // Fetch full user details from API
+        try {
+          const response = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/auth/me`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          if (response.ok) {
+            const userData = await response.json();
+            setUser(userData.data);
+          } else {
+            // Fallback to JWT data if API call fails
+            setUser({
+              id: decoded.id,
+              role: decoded.role,
+              firstName: decoded.firstName || 'User',
+              lastName: decoded.lastName || '',
+              email: decoded.email || 'user@example.com'
+            });
+          }
+        } catch (apiError) {
+          console.error('Failed to fetch user details:', apiError);
+          // Fallback to JWT data
+          setUser({
+            id: decoded.id,
+            role: decoded.role,
+            firstName: decoded.firstName || 'User',
+            lastName: decoded.lastName || '',
+            email: decoded.email || 'user@example.com'
+          });
+        }
       } catch (err) {
+        console.error('Token decode error:', err);
         clearTokens();
         setUser(null);
       }

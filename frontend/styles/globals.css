@@ -52,6 +52,23 @@ body {
     sans-serif;
 }
 
+/* Prevent layout shift during hydration */
+.layout-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar-placeholder {
+  width: 256px; /* w-64 equivalent */
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .sidebar-placeholder {
+    width: 0;
+  }
+}
+
 /* Shimmer Animation for Loading States */
 @keyframes shimmer {
   0% {

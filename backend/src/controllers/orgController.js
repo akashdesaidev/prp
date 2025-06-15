@@ -34,10 +34,10 @@ export const getOrgTree = async (_req, res, next) => {
       if (deptMap[t.department]) deptMap[t.department].teams.push(obj);
     });
 
-    // Step 4: Attach users to their teams
+    // Step 4: Attach users to their teams (Fixed: using teamId instead of team)
     users.forEach((u) => {
-      if (u.team && teamMap[u.team]) {
-        teamMap[u.team].members.push(u);
+      if (u.teamId && teamMap[u.teamId]) {
+        teamMap[u.teamId].members.push(u);
       }
     });
 

@@ -16,5 +16,6 @@ router.get('/', getTimeEntries);
 router.patch('/:id', updateTimeEntry);
 router.delete('/:id', deleteTimeEntry);
 router.get('/analytics', getTimeAnalytics);
+router.get('/summary', getTimeAnalytics); // Alias for frontend compatibility
 
 export default router;

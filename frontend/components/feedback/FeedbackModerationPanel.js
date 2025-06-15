@@ -149,11 +149,11 @@ export default function FeedbackModerationPanel({ userRole }) {
                       <span className="text-sm font-medium">
                         {item.isAnonymous
                           ? 'Anonymous'
-                          : `${item.fromUser?.firstName} ${item.fromUser?.lastName}`}
+                          : `${item.fromUserId?.firstName} ${item.fromUserId?.lastName}`}
                       </span>
                       <span className="text-gray-400">→</span>
                       <span className="text-sm font-medium">
-                        {item.toUser?.firstName} {item.toUser?.lastName}
+                        {item.toUserId?.firstName} {item.toUserId?.lastName}
                       </span>
                     </div>
 
@@ -301,15 +301,15 @@ export default function FeedbackModerationPanel({ userRole }) {
                   <p className="text-gray-900">
                     {selectedFeedback.isAnonymous
                       ? 'Anonymous User'
-                      : `${selectedFeedback.fromUser?.firstName} ${selectedFeedback.fromUser?.lastName} (${selectedFeedback.fromUser?.email})`}
+                      : `${selectedFeedback.fromUserId?.firstName} ${selectedFeedback.fromUserId?.lastName} (${selectedFeedback.fromUserId?.email})`}
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
                   <p className="text-gray-900">
-                    {selectedFeedback.toUser?.firstName} {selectedFeedback.toUser?.lastName} (
-                    {selectedFeedback.toUser?.email})
+                    {selectedFeedback.toUserId?.firstName} {selectedFeedback.toUserId?.lastName} (
+                    {selectedFeedback.toUserId?.email})
                   </p>
                 </div>
 

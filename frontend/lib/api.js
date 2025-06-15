@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getAccessToken, refreshAccessToken, clearTokens, isTokenExpired } from './token';
 
 const api = axios.create({
-  baseURL: (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api',
+  baseURL: (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001') + '/api',
   withCredentials: true
 });
 
@@ -27,6 +27,13 @@ api.interceptors.request.use(async (config) => {
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  // Add cache-busting in development
+  if (process.env.NODE_ENV === 'development') {
+    config.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+    config.headers['Pragma'] = 'no-cache';
+    config.headers['Expires'] = '0';
   }
 
   return config;

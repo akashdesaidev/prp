@@ -6,8 +6,9 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import ReviewCyclesTable from '../../components/reviews/ReviewCyclesTable';
 import CreateReviewCycleModal from '../../components/reviews/CreateReviewCycleModal';
 import ReviewCycleStats from '../../components/reviews/ReviewCycleStats';
+import ReviewProgressTracker from '../../components/reviews/ReviewProgressTracker';
 import { Button } from '../../components/ui/button';
-import { Plus, Filter, Download } from 'lucide-react';
+import { Plus, Filter, Download, BarChart3 } from 'lucide-react';
 import api from '../../lib/api';
 import toast from 'react-hot-toast';
 
@@ -16,6 +17,8 @@ export default function ReviewsPage() {
   const [reviewCycles, setReviewCycles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showProgressTracker, setShowProgressTracker] = useState(false);
+  const [selectedCycleForProgress, setSelectedCycleForProgress] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -115,6 +118,11 @@ export default function ReviewsPage() {
           </div>
 
           <div className="flex space-x-3">
+            <Button variant="outline" onClick={() => setShowProgressTracker(!showProgressTracker)}>
+              <BarChart3 className="w-4 h-4 mr-2" />
+              {showProgressTracker ? 'Hide Progress' : 'Show Progress'}
+            </Button>
+
             <Button variant="outline" onClick={handleExport} disabled={loading}>
               <Download className="w-4 h-4 mr-2" />
               Export
@@ -131,6 +139,18 @@ export default function ReviewsPage() {
 
         {/* Stats Cards */}
         <ReviewCycleStats stats={stats} />
+
+        {/* Progress Tracker */}
+        {showProgressTracker && reviewCycles.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {reviewCycles
+              .filter((cycle) => cycle.status === 'active' || cycle.status === 'grace-period')
+              .slice(0, 4)
+              .map((cycle) => (
+                <ReviewProgressTracker key={cycle._id} reviewCycleId={cycle._id} compact={true} />
+              ))}
+          </div>
+        )}
 
         {/* Filters */}
         <div className="bg-white p-4 rounded-lg border space-y-4">

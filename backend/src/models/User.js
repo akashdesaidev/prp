@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema(
       default: 'employee'
     },
     department: String,
+    teamId: { type: mongoose.Schema.Types.ObjectId, ref: 'Team' },
     managerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     isActive: { type: Boolean, default: true },
 

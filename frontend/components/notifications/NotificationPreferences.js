@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Mail, Bell, Clock, MessageSquare, Calendar, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../lib/api';
 
 const NotificationPreferences = () => {
   const { user } = useAuth();
@@ -31,16 +32,8 @@ const NotificationPreferences = () => {
   const fetchPreferences = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/notifications/preferences', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setPreferences((prev) => ({ ...prev, ...data }));
-      }
+      const response = await api.get('/notifications/preferences');
+      setPreferences((prev) => ({ ...prev, ...response.data }));
     } catch (error) {
       console.error('Failed to fetch preferences:', error);
     } finally {
@@ -53,21 +46,9 @@ const NotificationPreferences = () => {
     setMessage('');
 
     try {
-      const response = await fetch('/api/notifications/preferences', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(preferences)
-      });
-
-      if (response.ok) {
-        setMessage('Preferences saved successfully!');
-        setTimeout(() => setMessage(''), 3000);
-      } else {
-        throw new Error('Failed to save preferences');
-      }
+      await api.put('/notifications/preferences', preferences);
+      setMessage('Preferences saved successfully!');
+      setTimeout(() => setMessage(''), 3000);
     } catch (error) {
       console.error('Failed to save preferences:', error);
       setMessage('Failed to save preferences. Please try again.');

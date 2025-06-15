@@ -5,8 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../../../context/AuthContext';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 import ReviewForm from '../../../../components/reviews/ReviewForm';
+import ReviewFormWizard from '../../../../components/reviews/ReviewFormWizard';
 import { Button } from '../../../../components/ui/button';
-import { ArrowLeft, Save, Send, FileText, Clock, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Save, Send, FileText, Clock, CheckCircle, Layers } from 'lucide-react';
 import { api } from '../../../../lib/api';
 import toast from 'react-hot-toast';
 
@@ -19,9 +20,10 @@ export default function ReviewSubmissionPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [useWizardMode, setUseWizardMode] = useState(true);
   const [formData, setFormData] = useState({
     responses: [],
-    overallRating: '',
+    overallRating: 0,
     comments: ''
   });
 
@@ -35,29 +37,42 @@ export default function ReviewSubmissionPage() {
     try {
       setLoading(true);
       const response = await api.get(`/review-submissions/${id}`);
-      const reviewData = response.data;
+      const reviewData = response.data.data || response.data;
+
+      // Debug logging to see the actual data structure
+      console.log('Review submission response:', response.data);
+      console.log('Review data structure:', reviewData);
+      console.log('Review cycle data:', reviewData?.reviewCycleId);
 
       setReview(reviewData);
+
+      // Safe access to review cycle and questions
+      // The backend populates reviewCycleId, not reviewCycle
+      const reviewCycle = reviewData?.reviewCycleId || {};
+      const questions = reviewCycle?.questions || [];
+
+      console.log('Review cycle object:', reviewCycle);
+      console.log('Questions array:', questions);
 
       // Initialize form data with existing responses or empty structure
       if (reviewData.responses && reviewData.responses.length > 0) {
         setFormData({
           responses: reviewData.responses,
-          overallRating: reviewData.overallRating || '',
+          overallRating: reviewData.overallRating || 0,
           comments: reviewData.comments || ''
         });
       } else {
         // Initialize with empty responses based on questions
-        const emptyResponses = reviewData.reviewCycle.questions.map((question) => ({
+        const emptyResponses = questions.map((question) => ({
           questionId: question._id || question.id,
-          questionText: question.text,
+          questionText: question.question || question.text,
           response: '',
-          rating: question.type === 'rating' ? 5 : null
+          rating: question.requiresRating ? 0 : null
         }));
 
         setFormData({
           responses: emptyResponses,
-          overallRating: '',
+          overallRating: 0,
           comments: ''
         });
       }
@@ -87,19 +102,21 @@ export default function ReviewSubmissionPage() {
   };
 
   const validateForm = () => {
+    // Safe access to review cycle and questions
+    const reviewCycle = review?.reviewCycleId || {};
+    const questions = reviewCycle?.questions || [];
+
     // Check if all required questions are answered
     for (const response of formData.responses) {
-      const question = review.reviewCycle.questions.find(
-        (q) => (q._id || q.id) === response.questionId
-      );
+      const question = questions.find((q) => (q._id || q.id) === response.questionId);
 
-      if (question && question.required) {
-        if (question.type === 'rating' && !response.rating) {
-          toast.error(`Please provide a rating for: ${question.text}`);
+      if (question && question.isRequired) {
+        if (question.requiresRating && !response.rating) {
+          toast.error(`Please provide a rating for: ${question.question || question.text}`);
           return false;
         }
-        if (question.type === 'text' && !response.response.trim()) {
-          toast.error(`Please provide an answer for: ${question.text}`);
+        if (!question.requiresRating && !response.response.trim()) {
+          toast.error(`Please provide an answer for: ${question.question || question.text}`);
           return false;
         }
       }
@@ -108,11 +125,35 @@ export default function ReviewSubmissionPage() {
     return true;
   };
 
+  // Helper function to clean form data before sending to backend
+  const prepareFormData = (data) => {
+    const cleanedData = { ...data };
+
+    // Remove overallRating if it's 0 (no rating selected)
+    if (cleanedData.overallRating === 0) {
+      delete cleanedData.overallRating;
+    }
+
+    // Clean responses array - remove rating if it's 0
+    if (cleanedData.responses) {
+      cleanedData.responses = cleanedData.responses.map((response) => {
+        const cleanedResponse = { ...response };
+        if (cleanedResponse.rating === 0) {
+          delete cleanedResponse.rating;
+        }
+        return cleanedResponse;
+      });
+    }
+
+    return cleanedData;
+  };
+
   const handleSaveDraft = async () => {
     try {
       setSaving(true);
+      const cleanedData = prepareFormData(formData);
       await api.patch(`/review-submissions/${id}`, {
-        ...formData,
+        ...cleanedData,
         status: 'draft'
       });
       toast.success('Draft saved successfully');
@@ -131,8 +172,9 @@ export default function ReviewSubmissionPage() {
 
     try {
       setSubmitting(true);
+      const cleanedData = prepareFormData(formData);
       await api.patch(`/review-submissions/${id}`, {
-        ...formData,
+        ...cleanedData,
         status: 'submitted',
         submittedAt: new Date().toISOString()
       });
@@ -204,7 +246,9 @@ export default function ReviewSubmissionPage() {
   }
 
   const isSubmitted = review.submittedAt;
-  const dueDate = new Date(review.reviewCycle.endDate);
+  // Safe access to nested properties
+  const reviewCycle = review?.reviewCycleId || {};
+  const dueDate = new Date(reviewCycle?.endDate || new Date());
   const isOverdue = dueDate < new Date() && !isSubmitted;
 
   return (
@@ -228,6 +272,15 @@ export default function ReviewSubmissionPage() {
               <div className="flex items-center space-x-3">
                 {!isSubmitted && (
                   <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setUseWizardMode(!useWizardMode)}
+                    >
+                      <Layers className="w-4 h-4 mr-2" />
+                      {useWizardMode ? 'Basic View' : 'Wizard View'}
+                    </Button>
+
                     <Button variant="outline" onClick={handleSaveDraft} disabled={saving}>
                       <Save className="w-4 h-4 mr-2" />
                       {saving ? 'Saving...' : 'Save Draft'}
@@ -264,7 +317,7 @@ export default function ReviewSubmissionPage() {
                   <h1 className="text-2xl font-bold text-gray-900">
                     {getReviewTypeLabel(review.reviewType)}
                   </h1>
-                  <p className="text-gray-600 mt-1">{review.reviewCycle.name}</p>
+                  <p className="text-gray-600 mt-1">{reviewCycle?.name || 'Unknown Cycle'}</p>
                   {review.reviewType === 'peer' && review.revieweeId && (
                     <p className="text-sm text-gray-500 mt-1">
                       For: {review.revieweeId.firstName} {review.revieweeId.lastName}
@@ -277,7 +330,7 @@ export default function ReviewSubmissionPage() {
                 <div className="flex items-center space-x-2 mb-2">
                   <Clock className="w-4 h-4 text-gray-500" />
                   <span className="text-sm text-gray-600">
-                    Due: {formatDate(review.reviewCycle.endDate)}
+                    Due: {formatDate(reviewCycle?.endDate || new Date())}
                   </span>
                 </div>
 
@@ -297,13 +350,27 @@ export default function ReviewSubmissionPage() {
           </div>
 
           {/* Review Form */}
-          <ReviewForm
-            review={review}
-            formData={formData}
-            onResponseChange={handleResponseChange}
-            onOverallChange={handleOverallChange}
-            readOnly={isSubmitted}
-          />
+          {useWizardMode ? (
+            <ReviewFormWizard
+              review={review}
+              formData={formData}
+              onResponseChange={handleResponseChange}
+              onOverallChange={handleOverallChange}
+              onSaveDraft={handleSaveDraft}
+              onSubmit={handleSubmit}
+              readOnly={isSubmitted}
+              saving={saving}
+              submitting={submitting}
+            />
+          ) : (
+            <ReviewForm
+              review={review}
+              formData={formData}
+              onResponseChange={handleResponseChange}
+              onOverallChange={handleOverallChange}
+              readOnly={isSubmitted}
+            />
+          )}
         </div>
       </div>
     </ProtectedRoute>

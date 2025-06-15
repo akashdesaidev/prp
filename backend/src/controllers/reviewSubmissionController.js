@@ -316,7 +316,7 @@ export const getReviewAnalytics = async (req, res) => {
     const completionRates = await ReviewSubmission.aggregate([
       {
         $match: {
-          reviewCycleId: mongoose.Types.ObjectId(reviewCycleId)
+          reviewCycleId: new mongoose.Types.ObjectId(reviewCycleId)
         }
       },
       {

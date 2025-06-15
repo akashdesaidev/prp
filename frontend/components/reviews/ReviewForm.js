@@ -13,6 +13,22 @@ export default function ReviewForm({
 }) {
   const [expandedQuestions, setExpandedQuestions] = useState({});
 
+  // Helper to get the actual question type from either type field or requiresRating field
+  const getQuestionType = (question) => {
+    // If question has explicit type field, use it
+    if (question.type) {
+      return question.type;
+    }
+
+    // For ReviewCycle questions, infer type from requiresRating field
+    if (question.requiresRating !== undefined) {
+      return question.requiresRating ? 'rating_text' : 'text';
+    }
+
+    // Default fallback
+    return 'text';
+  };
+
   const toggleQuestionExpansion = (questionId) => {
     setExpandedQuestions((prev) => ({
       ...prev,
@@ -76,13 +92,14 @@ export default function ReviewForm({
   const QuestionCard = ({ question, response }) => {
     const questionId = question._id || question.id;
     const isExpanded = expandedQuestions[questionId];
+    const questionType = getQuestionType(question);
 
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-start space-x-3 flex-1">
             <div className="p-2 bg-gray-50 rounded-lg mt-1">
-              {question.type === 'rating' ? (
+              {questionType === 'rating' ? (
                 <Hash className="w-4 h-4 text-gray-600" />
               ) : (
                 <MessageSquare className="w-4 h-4 text-gray-600" />
@@ -100,7 +117,7 @@ export default function ReviewForm({
               )}
 
               {/* Rating Question */}
-              {question.type === 'rating' && (
+              {questionType === 'rating' && (
                 <div className="space-y-3">
                   <label className="block text-sm font-medium text-gray-700">
                     Rating (1-10 scale)
@@ -115,7 +132,7 @@ export default function ReviewForm({
               )}
 
               {/* Text Question */}
-              {question.type === 'text' && (
+              {questionType === 'text' && (
                 <div className="space-y-3">
                   <label className="block text-sm font-medium text-gray-700">Your Response</label>
                   <TextAreaComponent
@@ -129,7 +146,7 @@ export default function ReviewForm({
               )}
 
               {/* Combined Rating + Text */}
-              {question.type === 'rating_text' && (
+              {questionType === 'rating_text' && (
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -158,7 +175,7 @@ export default function ReviewForm({
               )}
 
               {/* Character count for text responses */}
-              {(question.type === 'text' || question.type === 'rating_text') &&
+              {(questionType === 'text' || questionType === 'rating_text') &&
                 response?.response && (
                   <div className="mt-2 text-xs text-gray-500">
                     {response.response.length} characters
@@ -175,17 +192,16 @@ export default function ReviewForm({
 
             <span
               className={`px-2 py-1 rounded-full ${
-                (question.type === 'rating' && response?.rating) ||
-                (question.type === 'text' && response?.response?.trim()) ||
-                (question.type === 'rating_text' &&
-                  (response?.rating || response?.response?.trim()))
+                (questionType === 'rating' && response?.rating) ||
+                (questionType === 'text' && response?.response?.trim()) ||
+                (questionType === 'rating_text' && (response?.rating || response?.response?.trim()))
                   ? 'bg-green-100 text-green-700'
                   : 'bg-gray-100 text-gray-600'
               }`}
             >
-              {(question.type === 'rating' && response?.rating) ||
-              (question.type === 'text' && response?.response?.trim()) ||
-              (question.type === 'rating_text' && (response?.rating || response?.response?.trim()))
+              {(questionType === 'rating' && response?.rating) ||
+              (questionType === 'text' && response?.response?.trim()) ||
+              (questionType === 'rating_text' && (response?.rating || response?.response?.trim()))
                 ? 'Completed'
                 : 'Pending'}
             </span>
@@ -196,19 +212,22 @@ export default function ReviewForm({
   };
 
   const getCompletionProgress = () => {
-    if (!review?.reviewCycle?.questions || !formData?.responses) return 0;
+    if (!review?.reviewCycleId?.questions || !formData?.responses) return 0;
 
-    const totalQuestions = review.reviewCycle.questions.length;
+    const totalQuestions = review.reviewCycleId.questions.length;
     const completedQuestions = formData.responses.filter((response) => {
-      const question = review.reviewCycle.questions.find(
+      const question = review.reviewCycleId.questions.find(
         (q) => (q._id || q.id) === response.questionId
       );
 
-      if (question?.type === 'rating') {
+      if (!question) return false;
+      const questionType = getQuestionType(question);
+
+      if (questionType === 'rating') {
         return response.rating > 0;
-      } else if (question?.type === 'text') {
+      } else if (questionType === 'text') {
         return response.response?.trim().length > 0;
-      } else if (question?.type === 'rating_text') {
+      } else if (questionType === 'rating_text') {
         return response.rating > 0 || response.response?.trim().length > 0;
       }
 
@@ -218,7 +237,7 @@ export default function ReviewForm({
     return totalQuestions > 0 ? Math.round((completedQuestions / totalQuestions) * 100) : 0;
   };
 
-  if (!review?.reviewCycle?.questions) {
+  if (!review?.reviewCycleId?.questions) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
         <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
@@ -250,16 +269,18 @@ export default function ReviewForm({
 
         <div className="mt-2 text-xs text-gray-500">
           {formData.responses?.filter((r) => {
-            const q = review.reviewCycle.questions.find(
+            const q = review.reviewCycleId.questions.find(
               (question) => (question._id || question.id) === r.questionId
             );
+            if (!q) return false;
+            const questionType = getQuestionType(q);
             return (
-              (q?.type === 'rating' && r.rating) ||
-              (q?.type === 'text' && r.response?.trim()) ||
-              (q?.type === 'rating_text' && (r.rating || r.response?.trim()))
+              (questionType === 'rating' && r.rating) ||
+              (questionType === 'text' && r.response?.trim()) ||
+              (questionType === 'rating_text' && (r.rating || r.response?.trim()))
             );
           }).length || 0}{' '}
-          of {review.reviewCycle.questions.length} questions completed
+          of {review.reviewCycleId.questions.length} questions completed
         </div>
       </div>
 
@@ -297,7 +318,7 @@ export default function ReviewForm({
 
       {/* Questions */}
       <div className="space-y-6">
-        {review.reviewCycle.questions.map((question, index) => {
+        {review.reviewCycleId.questions.map((question, index) => {
           const questionId = question._id || question.id;
           const response = formData.responses?.find((r) => r.questionId === questionId);
 

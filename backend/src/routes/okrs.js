@@ -6,7 +6,10 @@ import {
   updateOKR,
   deleteOKR,
   updateKeyResult,
-  addKeyResult
+  addKeyResult,
+  getOKRTags,
+  updateProgress,
+  getProgressHistory
 } from '../controllers/okrController.js';
 import auth from '../middleware/auth.js';
 import rbac from '../middleware/rbac.js';
@@ -19,8 +22,11 @@ router.use(auth);
 // OKR routes
 router.post('/', rbac(['admin', 'hr', 'manager']), createOKR);
 router.get('/', getOKRs);
+router.get('/tags', getOKRTags);
 router.get('/:id', getOKR);
 router.patch('/:id', updateOKR);
+router.put('/:id/progress', updateProgress);
+router.get('/:id/progress-history', getProgressHistory);
 router.delete('/:id', rbac(['admin']), deleteOKR);
 
 // Key Result routes
