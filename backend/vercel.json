@@ -1,9 +1,8 @@
 {
   "version": 2,
-  "name": "prp-backend",
   "builds": [
     {
-      "src": "api/index.js",
+      "src": "index.js",
       "use": "@vercel/node",
       "config": {
         "maxDuration": 10
@@ -47,17 +46,5 @@
       "src": "/(.*)",
       "dest": "/api/index.js"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "functions": {
-    "index.js": {
-      "maxDuration": 30
-    }
-  },
-  "regions": ["iad1"],
-  "github": {
-    "enabled": false
-  }
+  ]
 }
