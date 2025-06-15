@@ -357,7 +357,7 @@ export const getProgressHistory = async (req, res, next) => {
 
     const okr = await OKR.findById(id)
       .populate('progressSnapshots.recordedBy', 'firstName lastName email')
-      .select('progressSnapshots keyResults title');
+      .select('progressSnapshots keyResults title assignedTo createdBy');
 
     if (!okr) return res.status(404).json({ error: 'OKR not found' });
 

@@ -10,29 +10,46 @@ export default function CreateOKRModal({ isOpen, onClose, onSuccess }) {
     title: '',
     description: '',
     type: 'individual',
+    parentOkrId: '',
     assignedTo: '',
     startDate: '',
     endDate: '',
     keyResults: [{ title: '', description: '', targetValue: '', unit: '' }]
   });
   const [users, setUsers] = useState([]);
+  const [parentOkrs, setParentOkrs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
     if (isOpen) {
       fetchUsers();
+      fetchParentOkrs();
     }
   }, [isOpen]);
 
   const fetchUsers = async () => {
     try {
-      setLoadingData(true);
       const response = await api.get('/users');
       setUsers(response.data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to load users');
+    }
+  };
+
+  const fetchParentOkrs = async () => {
+    try {
+      setLoadingData(true);
+      const response = await api.get('/okrs');
+      // Filter OKRs that can be parents (company, department, team level)
+      const potentialParents = response.data.filter(
+        (okr) => okr.type !== 'individual' && okr.status === 'active'
+      );
+      setParentOkrs(potentialParents || []);
+    } catch (error) {
+      console.error('Error fetching parent OKRs:', error);
+      toast.error('Failed to load parent OKRs');
     } finally {
       setLoadingData(false);
     }
@@ -91,6 +108,7 @@ export default function CreateOKRModal({ isOpen, onClose, onSuccess }) {
 
       const payload = {
         ...formData,
+        parentOkrId: formData.parentOkrId || null,
         keyResults: formData.keyResults.map((kr) => ({
           ...kr,
           targetValue: kr.targetValue ? Number(kr.targetValue) : null
@@ -107,6 +125,7 @@ export default function CreateOKRModal({ isOpen, onClose, onSuccess }) {
         title: '',
         description: '',
         type: 'individual',
+        parentOkrId: '',
         assignedTo: '',
         startDate: '',
         endDate: '',
@@ -117,6 +136,19 @@ export default function CreateOKRModal({ isOpen, onClose, onSuccess }) {
       toast.error(error.response?.data?.error || 'Failed to create OKR');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getOkrTypeColor = (type) => {
+    switch (type) {
+      case 'company':
+        return 'text-purple-600';
+      case 'department':
+        return 'text-blue-600';
+      case 'team':
+        return 'text-green-600';
+      default:
+        return 'text-gray-600';
     }
   };
 
@@ -178,6 +210,32 @@ export default function CreateOKRModal({ isOpen, onClose, onSuccess }) {
                     <option value="department">Department</option>
                     <option value="company">Company</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Parent OKR (Optional)
+                  </label>
+                  <select
+                    value={formData.parentOkrId}
+                    onChange={(e) => handleInputChange('parentOkrId', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="">No parent (Top-level OKR)</option>
+                    {parentOkrs.map((okr) => {
+                      return (
+                        <option key={okr._id} value={okr._id}>
+                          <span className={getOkrTypeColor(okr.type)}>
+                            [{okr.type.toUpperCase()}]
+                          </span>{' '}
+                          {okr.title}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Link this OKR to a higher-level objective for cascading alignment
+                  </p>
                 </div>
 
                 <div>

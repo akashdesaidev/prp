@@ -79,11 +79,7 @@ const nextConfig = {
   // Redirects for better SEO
   async redirects() {
     return [
-      {
-        source: '/',
-        destination: '/dashboard',
-        permanent: false
-      }
+      // No redirects needed - main page is at root
     ];
   },
 

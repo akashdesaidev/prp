@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../lib/api';
 import NotificationCenter from './NotificationCenter';
 
 const NotificationBell = () => {
@@ -19,16 +20,10 @@ const NotificationBell = () => {
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await fetch('/api/notifications?unreadOnly=true', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUnreadCount(data.unreadCount || 0);
-      }
+      const response = await api.get('/notifications?unreadOnly=true');
+      // Handle the nested data structure from backend
+      const notificationData = response.data.data || response.data;
+      setUnreadCount(notificationData.unreadCount || 0);
     } catch (error) {
       console.error('Failed to fetch unread count:', error);
     }

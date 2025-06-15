@@ -5,8 +5,20 @@ import { useAuth } from '../../context/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import GiveFeedbackModal from '../../components/feedback/GiveFeedbackModal';
 import FeedbackModerationPanel from '../../components/feedback/FeedbackModerationPanel';
+import FeedbackAnalyticsDashboard from '../../components/feedback/FeedbackAnalyticsDashboard';
+import AnonymousFeedbackHandler from '../../components/feedback/AnonymousFeedbackHandler';
+import SentimentVisualization from '../../components/feedback/SentimentVisualization';
 import { Button } from '../../components/ui/button';
-import { Plus, MessageSquare, Star, Filter, Shield } from 'lucide-react';
+import {
+  Plus,
+  MessageSquare,
+  Star,
+  Filter,
+  Shield,
+  BarChart3,
+  EyeOff,
+  Activity
+} from 'lucide-react';
 import api from '../../lib/api';
 import toast from 'react-hot-toast';
 
@@ -62,6 +74,9 @@ export default function FeedbackPage() {
   const tabs = [
     { id: 'received', label: 'Received', icon: MessageSquare },
     { id: 'given', label: 'Given', icon: Star },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'sentiment', label: 'Sentiment', icon: Activity },
+    { id: 'anonymous', label: 'Anonymous', icon: EyeOff },
     ...(canModerate ? [{ id: 'moderate', label: 'Moderate', icon: Shield }] : [])
   ];
 
@@ -122,6 +137,12 @@ export default function FeedbackPage() {
         {/* Content */}
         {activeTab === 'moderate' ? (
           <FeedbackModerationPanel userRole={user?.role} />
+        ) : activeTab === 'analytics' ? (
+          <FeedbackAnalyticsDashboard />
+        ) : activeTab === 'sentiment' ? (
+          <SentimentVisualization />
+        ) : activeTab === 'anonymous' ? (
+          <AnonymousFeedbackHandler mode={canModerate ? 'admin' : 'viewer'} />
         ) : (
           <div className="space-y-4">
             {/* Feedback List */}
@@ -151,8 +172,8 @@ export default function FeedbackPage() {
                                 {activeTab === 'received'
                                   ? item.isAnonymous
                                     ? 'Anonymous'
-                                    : `${item.fromUser?.firstName} ${item.fromUser?.lastName}`
-                                  : `To: ${item.toUser?.firstName} ${item.toUser?.lastName}`}
+                                    : `${item.fromUserId?.firstName} ${item.fromUserId?.lastName}`
+                                  : `To: ${item.toUserId?.firstName} ${item.toUserId?.lastName}`}
                               </span>
                             </div>
 

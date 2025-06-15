@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Star, Tag, Users, Send } from 'lucide-react';
+import { X, Star, Tag, Users, Send, Edit3 } from 'lucide-react';
 import { Button } from '../ui/button';
+import RichTextFeedbackComposer from './RichTextFeedbackComposer';
+import SkillMatrixIntegration from './SkillMatrixIntegration';
 import { api } from '../../lib/api';
 import toast from 'react-hot-toast';
 
@@ -21,6 +23,8 @@ export default function GiveFeedbackModal({ isOpen, onClose, onSubmit, recipient
   const [submitting, setSubmitting] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [errors, setErrors] = useState({});
+  const [useEnhancedEditor, setUseEnhancedEditor] = useState(false);
+  const [selectedSkills, setSelectedSkills] = useState([]);
 
   useEffect(() => {
     if (isOpen) {

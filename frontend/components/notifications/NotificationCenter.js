@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, X, Check, Clock, AlertCircle, MessageSquare, Calendar } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../lib/api';
 
 const NotificationCenter = ({ isOpen, onClose }) => {
   const { user } = useAuth();
@@ -17,17 +18,12 @@ const NotificationCenter = ({ isOpen, onClose }) => {
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/notifications', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
-      }
+      const response = await api.get('/notifications');
+      console.log('Notification API response:', response.data); // Debug log
+      // Handle the nested data structure from backend
+      const notificationData = response.data.data || response.data;
+      setNotifications(notificationData.notifications || []);
+      setUnreadCount(notificationData.unreadCount || 0);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     } finally {
@@ -37,19 +33,11 @@ const NotificationCenter = ({ isOpen, onClose }) => {
 
   const markAsRead = async (notificationId) => {
     try {
-      const response = await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        setNotifications((prev) =>
-          prev.map((notif) => (notif._id === notificationId ? { ...notif, isRead: true } : notif))
-        );
-        setUnreadCount((prev) => Math.max(0, prev - 1));
-      }
+      await api.patch(`/notifications/${notificationId}/read`);
+      setNotifications((prev) =>
+        prev.map((notif) => (notif._id === notificationId ? { ...notif, isRead: true } : notif))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
     }
@@ -57,17 +45,9 @@ const NotificationCenter = ({ isOpen, onClose }) => {
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch('/api/notifications/mark-all-read', {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        setNotifications((prev) => prev.map((notif) => ({ ...notif, isRead: true })));
-        setUnreadCount(0);
-      }
+      await api.patch('/notifications/mark-all-read');
+      setNotifications((prev) => prev.map((notif) => ({ ...notif, isRead: true })));
+      setUnreadCount(0);
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
     }
