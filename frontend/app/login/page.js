@@ -66,9 +66,21 @@ export default function LoginPage() {
 
         {/* Demo credentials info */}
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-sm text-blue-800 font-medium">Demo Credentials:</p>
-          <p className="text-sm text-blue-600">Email: admin@prp.com</p>
-          <p className="text-sm text-blue-600">Password: admin123</p>
+          <p className="text-sm text-blue-800 font-medium mb-2">🎯 Demo Credentials:</p>
+          <div className="space-y-1">
+            <p className="text-xs text-blue-700">
+              <strong>Admin:</strong> admin@demotech.com / Demo123!
+            </p>
+            <p className="text-xs text-blue-700">
+              <strong>Manager:</strong> john.manager@demotech.com / Demo123!
+            </p>
+            <p className="text-xs text-blue-700">
+              <strong>Employee:</strong> sarah.employee@demotech.com / Demo123!
+            </p>
+            <p className="text-xs text-blue-700">
+              <strong>HR:</strong> lisa.hr@demotech.com / Demo123!
+            </p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

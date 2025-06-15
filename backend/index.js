@@ -35,10 +35,31 @@ connectDB();
 
 // Security middleware
 app.use(helmet());
+// Configure CORS for multiple environments
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'https://prp-iota.vercel.app',
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL_PROD
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log('CORS blocked origin:', origin);
+      return callback(new Error('Not allowed by CORS policy'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma', 'Expires']
   })
 );
 
