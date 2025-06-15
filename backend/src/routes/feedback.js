@@ -115,6 +115,32 @@ router.get(
   feedbackController.getFeedbackStats
 );
 
+// @route   GET /api/v1/feedback (with summary=true)
+// @desc    Get feedback summary for dashboard
+// @access  All authenticated users
+router.get(
+  '/',
+  auth,
+  [
+    query('summary').optional().isBoolean(),
+    query('userId').optional().isMongoId().withMessage('Invalid user ID'),
+    query('type').optional().isIn(['public', 'private']),
+    query('category')
+      .optional()
+      .isIn(['skills', 'values', 'initiatives', 'goals', 'collaboration', 'leadership']),
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 100 })
+  ],
+  (req, res) => {
+    // If summary=true, redirect to stats endpoint
+    if (req.query.summary === 'true') {
+      return feedbackController.getFeedbackStats(req, res);
+    }
+    // Otherwise, get regular feedback list
+    return feedbackController.getFeedbackForUser(req, res);
+  }
+);
+
 // @route   GET /api/v1/feedback/moderation
 // @desc    Get all feedback for moderation
 // @access  Admin, HR only

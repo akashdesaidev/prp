@@ -127,7 +127,7 @@ feedbackSchema.statics.findByUser = function (userId, options = {}) {
 
 feedbackSchema.statics.getFeedbackStats = function (userId, timeRange = null) {
   const matchStage = {
-    toUserId: mongoose.Types.ObjectId(userId),
+    toUserId: new mongoose.Types.ObjectId(userId),
     status: 'active'
   };
 
@@ -160,7 +160,7 @@ feedbackSchema.statics.getTopSkills = function (userId, limit = 10) {
   return this.aggregate([
     {
       $match: {
-        toUserId: mongoose.Types.ObjectId(userId),
+        toUserId: new mongoose.Types.ObjectId(userId),
         status: 'active',
         tags: { $exists: true, $ne: [] }
       }

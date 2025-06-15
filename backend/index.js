@@ -22,6 +22,7 @@ import settingsRoutes from './src/routes/settings.js';
 import analyticsRoutes from './src/routes/api/analytics.js';
 import monitoringRoutes from './src/routes/monitoring.js';
 import notificationRoutes from './src/routes/notifications.js';
+import dashboardRoutes from './src/routes/dashboard.js';
 import monitoringService from './src/services/monitoringService.js';
 
 // Load env vars
@@ -41,12 +42,22 @@ app.use(
   })
 );
 
-// Rate limiting
+// Rate limiting - More lenient for development/demo
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // 1000 requests for dev/demo
+  message: {
+    error: 'Too many requests from this IP, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false // Disable the `X-RateLimit-*` headers
 });
-app.use('/api/', limiter);
+
+// Only apply rate limiting in production or if specifically enabled
+if (process.env.NODE_ENV === 'production' || process.env.ENABLE_RATE_LIMITING === 'true') {
+  app.use('/api/', limiter);
+}
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -87,6 +98,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

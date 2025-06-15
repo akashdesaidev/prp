@@ -145,7 +145,7 @@ reviewSubmissionSchema.statics.findByReviewCycle = function (reviewCycleId, opti
 
 reviewSubmissionSchema.statics.getReviewStats = function (reviewCycleId) {
   return this.aggregate([
-    { $match: { reviewCycleId: mongoose.Types.ObjectId(reviewCycleId) } },
+    { $match: { reviewCycleId: new mongoose.Types.ObjectId(reviewCycleId) } },
     {
       $group: {
         _id: '$reviewType',
