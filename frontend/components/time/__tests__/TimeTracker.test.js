@@ -9,10 +9,11 @@ jest.mock('../../../lib/api');
 const mockedApi = api;
 
 // Mock react-hot-toast
-jest.mock('react-hot-toast', () => ({
+const mockToast = {
   success: jest.fn(),
   error: jest.fn()
-}));
+};
+jest.mock('react-hot-toast', () => mockToast);
 
 // Mock localStorage
 const localStorageMock = {
@@ -72,20 +73,18 @@ describe('TimeTracker', () => {
     fireEvent.click(startButton);
 
     // Should show error toast (mocked)
-    expect(require('react-hot-toast').error).toHaveBeenCalledWith(
-      'Please select an OKR to track time against'
-    );
+    expect(mockToast.error).toHaveBeenCalledWith('Please select an OKR to track time against');
   });
 
   it('starts tracking when OKR is selected', async () => {
     render(<TimeTracker />);
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('')).toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toBeInTheDocument();
     });
 
     // Select an OKR
-    const okrSelect = screen.getByDisplayValue('');
+    const okrSelect = screen.getByRole('combobox');
     fireEvent.change(okrSelect, { target: { value: '1' } });
 
     // Start tracking
@@ -123,7 +122,7 @@ describe('TimeTracker', () => {
     render(<TimeTracker />);
 
     await waitFor(() => {
-      const okrSelect = screen.getByDisplayValue('');
+      const okrSelect = screen.getByRole('combobox');
       fireEvent.change(okrSelect, { target: { value: '1' } });
     });
 

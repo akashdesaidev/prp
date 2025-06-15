@@ -235,15 +235,12 @@ export default function Sidebar() {
     setIsHydrated(true);
   }, []);
 
-  // Try to get mobile menu context, but don't fail if it doesn't exist
-  let mobileMenuContext;
-  try {
-    mobileMenuContext = useMobileMenu();
-  } catch {
-    mobileMenuContext = { isMobileMenuOpen: false, closeMobileMenu: () => {} };
-  }
-
-  const { isMobileMenuOpen, closeMobileMenu } = mobileMenuContext;
+  // Get mobile menu context with proper error handling
+  const mobileMenuContext = useMobileMenu();
+  const { isMobileMenuOpen, closeMobileMenu } = mobileMenuContext || {
+    isMobileMenuOpen: false,
+    closeMobileMenu: () => {}
+  };
 
   if (!user) return null;
 

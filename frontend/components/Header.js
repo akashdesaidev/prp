@@ -11,15 +11,9 @@ export default function Header() {
   const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  // Try to get mobile menu context, but don't fail if it doesn't exist
-  let mobileMenuContext;
-  try {
-    mobileMenuContext = useMobileMenu();
-  } catch {
-    mobileMenuContext = { toggleMobileMenu: () => {} };
-  }
-
-  const { toggleMobileMenu } = mobileMenuContext;
+  // Get mobile menu context with proper error handling
+  const mobileMenuContext = useMobileMenu();
+  const { toggleMobileMenu } = mobileMenuContext || { toggleMobileMenu: () => {} };
 
   // Don't show header for unauthenticated users (they see the landing page)
   if (!user) return null;

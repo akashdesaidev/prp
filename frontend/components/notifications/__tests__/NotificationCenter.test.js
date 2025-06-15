@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import NotificationCenter from '../NotificationCenter';
-import { AuthContext } from '../../../contexts/AuthContext';
+import { AuthContext } from '../../../context/AuthContext';
 
 // Mock fetch
 global.fetch = jest.fn();

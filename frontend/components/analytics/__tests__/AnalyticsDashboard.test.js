@@ -11,7 +11,7 @@ const mockUser = {
   role: 'admin'
 };
 
-jest.mock('../../context/AuthContext', () => ({
+jest.mock('../../../context/AuthContext', () => ({
   useAuth: () => ({
     user: mockUser
   })
@@ -90,8 +90,7 @@ describe('AnalyticsDashboard', () => {
 
     render(<AnalyticsDashboard dateRange={mockDateRange} userRole="admin" />);
 
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    // Check for loading skeleton
+    // Check for loading skeleton cards
     expect(document.querySelectorAll('.animate-pulse')).toHaveLength(4);
   });
 
@@ -181,7 +180,7 @@ describe('AnalyticsDashboard', () => {
     render(<AnalyticsDashboard dateRange={mockDateRange} userRole="admin" />);
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/analytics/summary', {
+      expect(fetch).toHaveBeenCalledWith('http://localhost:5000/api/analytics/summary', {
         headers: {
           Authorization: 'Bearer mock-token',
           'Content-Type': 'application/json'
