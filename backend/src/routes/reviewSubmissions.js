@@ -12,12 +12,32 @@ const updateSubmissionValidation = [
   body('responses.*.response').optional().isString().withMessage('Response must be a string'),
   body('responses.*.rating')
     .optional()
-    .isInt({ min: 1, max: 10 })
-    .withMessage('Rating must be between 1 and 10'),
+    .custom((value) => {
+      // Allow empty string, null, undefined, or 0 for optional field (0 means no rating)
+      if (value === '' || value === null || value === undefined || value === 0) {
+        return true;
+      }
+      // If value is provided, it must be a valid integer between 1 and 10
+      const num = parseInt(value);
+      if (isNaN(num) || num < 1 || num > 10) {
+        throw new Error('Rating must be between 1 and 10');
+      }
+      return true;
+    }),
   body('overallRating')
     .optional()
-    .isInt({ min: 1, max: 10 })
-    .withMessage('Overall rating must be between 1 and 10'),
+    .custom((value) => {
+      // Allow empty string, null, undefined, or 0 for optional field (0 means no rating)
+      if (value === '' || value === null || value === undefined || value === 0) {
+        return true;
+      }
+      // If value is provided, it must be a valid integer between 1 and 10
+      const num = parseInt(value);
+      if (isNaN(num) || num < 1 || num > 10) {
+        throw new Error('Overall rating must be between 1 and 10');
+      }
+      return true;
+    }),
   body('strengths')
     .optional()
     .isString()
@@ -56,10 +76,24 @@ const nominatePeersValidation = [
 const idValidation = [param('id').isMongoId().withMessage('Invalid submission ID')];
 
 // @route   GET /api/v1/review-submissions/my-submissions
-// @desc    Get user's review submissions
+// @desc    Get user's review submissions (enhanced with auto-creation)
 // @access  All authenticated users
 router.get(
   '/my-submissions',
+  auth,
+  [
+    query('reviewCycleId').optional().isMongoId().withMessage('Invalid review cycle ID'),
+    query('reviewType').optional().isIn(['self', 'peer', 'manager', 'upward']),
+    query('status').optional().isIn(['draft', 'submitted', 'reviewed'])
+  ],
+  reviewSubmissionController.getMyReviewSubmissions
+);
+
+// @route   GET /api/v1/review-submissions/user-submissions
+// @desc    Get user's review submissions (basic)
+// @access  All authenticated users
+router.get(
+  '/user-submissions',
   auth,
   [
     query('reviewCycleId').optional().isMongoId().withMessage('Invalid review cycle ID'),
@@ -90,6 +124,17 @@ router.put(
   reviewSubmissionController.updateReviewSubmission
 );
 
+// @route   PATCH /api/v1/review-submissions/:id
+// @desc    Update review submission (partial update)
+// @access  Submission owner only
+router.patch(
+  '/:id',
+  auth,
+  idValidation,
+  updateSubmissionValidation,
+  reviewSubmissionController.updateReviewSubmission
+);
+
 // @route   POST /api/v1/review-submissions/:id/submit
 // @desc    Submit review
 // @access  Submission owner only
@@ -103,6 +148,16 @@ router.post(
   auth,
   nominatePeersValidation,
   reviewSubmissionController.nominatePeers
+);
+
+// @route   GET /api/v1/review-submissions/nominations
+// @desc    Get nominations for a review cycle
+// @access  All authenticated users
+router.get(
+  '/nominations',
+  auth,
+  [query('reviewCycleId').isMongoId().withMessage('Invalid review cycle ID')],
+  reviewSubmissionController.getReviewCycleNominations
 );
 
 // @route   GET /api/v1/review-submissions/analytics/:reviewCycleId

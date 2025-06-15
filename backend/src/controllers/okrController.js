@@ -295,17 +295,19 @@ export const updateProgress = async (req, res, next) => {
     console.log('🔄 updateProgress called for OKR:', id);
     console.log('📊 Key results to update:', keyResults);
 
-    const okr = await OKR.findById(id);
+    const okr = await OKR.findById(id).populate('assignedTo', 'managerId');
     if (!okr) return res.status(404).json({ error: 'OKR not found' });
 
-    // Role-based access control
+    // Role-based access control - Enhanced for managers
     const canEdit =
       req.user.role === 'admin' ||
       req.user.role === 'hr' ||
-      okr.assignedTo.toString() === req.user.id ||
-      okr.createdBy.toString() === req.user.id;
+      okr.assignedTo._id.toString() === req.user.id ||
+      okr.createdBy.toString() === req.user.id ||
+      (req.user.role === 'manager' && okr.assignedTo.managerId?.toString() === req.user.id);
 
     if (!canEdit) {
+      console.log('❌ Access denied for user:', req.user.email, 'role:', req.user.role);
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -357,18 +359,24 @@ export const getProgressHistory = async (req, res, next) => {
 
     const okr = await OKR.findById(id)
       .populate('progressSnapshots.recordedBy', 'firstName lastName email')
+      .populate('assignedTo', 'managerId')
       .select('progressSnapshots keyResults title assignedTo createdBy');
 
     if (!okr) return res.status(404).json({ error: 'OKR not found' });
 
-    // Role-based access control
+    // Role-based access control - Enhanced for managers
     const canView =
       req.user.role === 'admin' ||
       req.user.role === 'hr' ||
-      okr.assignedTo?.toString() === req.user.id ||
-      okr.createdBy?.toString() === req.user.id;
+      okr.assignedTo?._id?.toString() === req.user.id ||
+      okr.createdBy?.toString() === req.user.id ||
+      (req.user.role === 'manager' && okr.assignedTo?.managerId?.toString() === req.user.id);
 
     if (!canView) {
+      console.log('❌ Access denied for user:', req.user.email, 'role:', req.user.role);
+      console.log('OKR assignedTo:', okr.assignedTo?._id?.toString());
+      console.log('OKR assignedTo managerId:', okr.assignedTo?.managerId?.toString());
+      console.log('Current user ID:', req.user.id);
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -397,6 +405,43 @@ export const getProgressHistory = async (req, res, next) => {
     });
   } catch (err) {
     console.error('❌ Error getting progress history:', err);
+    return next(err);
+  }
+};
+
+export const getOKRHierarchy = async (req, res, next) => {
+  try {
+    console.log('🌳 getOKRHierarchy called by user:', req.user.email, 'role:', req.user.role);
+
+    let filter = {};
+
+    // Role-based filtering - same logic as getOKRs
+    if (req.user.role === 'employee') {
+      filter.assignedTo = req.user.id;
+    } else if (req.user.role === 'manager') {
+      // Managers can see their team's OKRs
+      const User = (await import('../models/User.js')).default;
+      const teamMembers = await User.find({ managerId: req.user.id }).select('_id');
+      const teamIds = teamMembers.map((member) => member._id);
+      teamIds.push(req.user.id); // Include manager's own OKRs
+      filter.assignedTo = { $in: teamIds };
+    }
+    // Admin and HR can see all OKRs (no filter)
+
+    console.log('🔍 Hierarchy filter applied:', filter);
+
+    // Get all OKRs with populated references
+    const okrs = await OKR.find(filter)
+      .populate('assignedTo', 'firstName lastName email')
+      .populate('createdBy', 'firstName lastName email')
+      .populate('parentOkrId', 'title type')
+      .sort({ type: 1, createdAt: 1 }); // Sort by type first (company, department, team, individual)
+
+    console.log(`📊 Found ${okrs.length} OKRs for hierarchy`);
+
+    return res.json(okrs);
+  } catch (err) {
+    console.error('❌ Error getting OKR hierarchy:', err);
     return next(err);
   }
 };

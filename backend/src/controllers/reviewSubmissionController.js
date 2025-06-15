@@ -1,9 +1,115 @@
 import ReviewSubmission from '../models/ReviewSubmission.js';
 import ReviewCycle from '../models/ReviewCycle.js';
+import User from '../models/User.js';
 import mongoose from 'mongoose';
 import { validationResult } from 'express-validator';
 
-// Get user's review submissions
+// Auto-create review submissions for active cycles
+export const createReviewSubmissionsForCycle = async (reviewCycleId) => {
+  try {
+    const cycle = await ReviewCycle.findById(reviewCycleId);
+    if (!cycle) {
+      throw new Error('Review cycle not found');
+    }
+
+    // Get all active users
+    const users = await User.find({ isActive: true });
+    const submissions = [];
+
+    for (const user of users) {
+      // Create self-review submission
+      if (cycle.reviewTypes.selfReview) {
+        const existingSelf = await ReviewSubmission.findOne({
+          reviewCycleId,
+          revieweeId: user._id,
+          reviewerId: user._id,
+          reviewType: 'self'
+        });
+
+        if (!existingSelf) {
+          submissions.push({
+            reviewCycleId,
+            revieweeId: user._id,
+            reviewerId: user._id,
+            reviewType: 'self',
+            status: 'draft',
+            responses: cycle.questions.map((q) => ({
+              questionId: q._id,
+              questionText: q.question,
+              response: '',
+              rating: null
+            }))
+          });
+        }
+      }
+
+      // Create manager review submission (if user has a manager)
+      if (cycle.reviewTypes.managerReview && user.managerId) {
+        const existingManager = await ReviewSubmission.findOne({
+          reviewCycleId,
+          revieweeId: user._id,
+          reviewerId: user.managerId,
+          reviewType: 'manager'
+        });
+
+        if (!existingManager) {
+          submissions.push({
+            reviewCycleId,
+            revieweeId: user._id,
+            reviewerId: user.managerId,
+            reviewType: 'manager',
+            status: 'draft',
+            responses: cycle.questions.map((q) => ({
+              questionId: q._id,
+              questionText: q.question,
+              response: '',
+              rating: null
+            }))
+          });
+        }
+      }
+
+      // Create upward review submission (if user has reports and upward reviews enabled)
+      if (cycle.reviewTypes.upwardReview && user.managerId) {
+        const existingUpward = await ReviewSubmission.findOne({
+          reviewCycleId,
+          revieweeId: user.managerId,
+          reviewerId: user._id,
+          reviewType: 'upward'
+        });
+
+        if (!existingUpward) {
+          submissions.push({
+            reviewCycleId,
+            revieweeId: user.managerId,
+            reviewerId: user._id,
+            reviewType: 'upward',
+            status: 'draft',
+            responses: cycle.questions.map((q) => ({
+              questionId: q._id,
+              questionText: q.question,
+              response: '',
+              rating: null
+            }))
+          });
+        }
+      }
+    }
+
+    // Bulk create submissions
+    if (submissions.length > 0) {
+      await ReviewSubmission.insertMany(submissions);
+      console.log(`Created ${submissions.length} review submissions for cycle ${reviewCycleId}`);
+    }
+
+    return submissions.length;
+  } catch (error) {
+    console.error('Error creating review submissions:', error);
+    throw error;
+  }
+};
+
+// Get user's review submissions (all reviews they need to complete)
 export const getUserReviewSubmissions = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -16,15 +122,81 @@ export const getUserReviewSubmissions = async (req, res) => {
 
     const submissions = await ReviewSubmission.find(query)
       .populate('revieweeId', 'firstName lastName email')
-      .populate('reviewCycleId', 'name type status endDate')
+      .populate('reviewCycleId', 'name type status endDate questions')
       .sort({ createdAt: -1 });
+
+    // Transform questions in all submissions for frontend compatibility
+    const transformedSubmissions = submissions.map((submission) => ({
+      ...submission.toObject(),
+      reviewCycleId: submission.reviewCycleId
+        ? {
+            ...submission.reviewCycleId.toObject(),
+            questions: submission.reviewCycleId.questions.map((q) => ({
+              ...q.toObject(),
+              type: q.requiresRating ? 'rating_text' : 'text',
+              text: q.question
+            }))
+          }
+        : null
+    }));
 
     res.json({
       success: true,
-      data: submissions
+      data: transformedSubmissions,
+      reviews: transformedSubmissions // For backward compatibility
     });
   } catch (error) {
     console.error('Error fetching user review submissions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch review submissions',
+      error: error.message
+    });
+  }
+};
+
+// Get user's review submissions with enhanced data (for my-reviews page)
+export const getMyReviewSubmissions = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Also check for active cycles and auto-create missing submissions
+    const activeCycles = await ReviewCycle.find({
+      status: { $in: ['active', 'grace-period'] }
+    });
+
+    for (const cycle of activeCycles) {
+      await createReviewSubmissionsForCycle(cycle._id);
+    }
+
+    // Get all review submissions where user is the reviewer (after auto-creation)
+    const updatedSubmissions = await ReviewSubmission.find({ reviewerId: userId })
+      .populate('revieweeId', 'firstName lastName email')
+      .populate('reviewCycleId', 'name type status endDate questions')
+      .sort({ createdAt: -1 });
+
+    // Transform questions in all submissions for frontend compatibility
+    const transformedSubmissions = updatedSubmissions.map((submission) => ({
+      ...submission.toObject(),
+      reviewCycleId: submission.reviewCycleId
+        ? {
+            ...submission.reviewCycleId.toObject(),
+            questions: submission.reviewCycleId.questions.map((q) => ({
+              ...q.toObject(),
+              type: q.requiresRating ? 'rating_text' : 'text',
+              text: q.question
+            }))
+          }
+        : null
+    }));
+
+    res.json({
+      success: true,
+      data: transformedSubmissions,
+      reviews: transformedSubmissions
+    });
+  } catch (error) {
+    console.error('Error fetching my review submissions:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch review submissions',
@@ -62,9 +234,24 @@ export const getReviewSubmission = async (req, res) => {
       });
     }
 
+    // Transform questions to include type field for frontend compatibility
+    const transformedSubmission = {
+      ...submission.toObject(),
+      reviewCycleId: submission.reviewCycleId
+        ? {
+            ...submission.reviewCycleId.toObject(),
+            questions: submission.reviewCycleId.questions.map((q) => ({
+              ...q.toObject(),
+              type: q.requiresRating ? 'rating_text' : 'text', // Add type field based on requiresRating
+              text: q.question // Also map question field to text for frontend compatibility
+            }))
+          }
+        : null
+    };
+
     res.json({
       success: true,
-      data: submission
+      data: transformedSubmission
     });
   } catch (error) {
     console.error('Error fetching review submission:', error);
@@ -118,12 +305,27 @@ export const updateReviewSubmission = async (req, res) => {
       'strengths',
       'areasForImprovement',
       'goals',
-      'comments'
+      'comments',
+      'status',
+      'submittedAt'
     ];
 
     allowedUpdates.forEach((field) => {
       if (req.body[field] !== undefined) {
-        submission[field] = req.body[field];
+        // Handle special cases for numeric fields
+        if (field === 'overallRating') {
+          // Convert empty string or 0 to null for numeric fields (since ratings start from 1)
+          submission[field] =
+            req.body[field] === '' || req.body[field] === 0 ? null : req.body[field];
+        } else if (field === 'responses' && Array.isArray(req.body[field])) {
+          // Handle responses array with rating field conversion
+          submission[field] = req.body[field].map((response) => ({
+            ...response,
+            rating: response.rating === '' || response.rating === 0 ? null : response.rating
+          }));
+        } else {
+          submission[field] = req.body[field];
+        }
       }
     });
 
@@ -358,6 +560,64 @@ export const getReviewAnalytics = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch review analytics',
+      error: error.message
+    });
+  }
+};
+
+// Get nominations for a review cycle
+export const getReviewCycleNominations = async (req, res) => {
+  try {
+    const reviewCycleId = req.query.reviewCycleId;
+    const userId = req.user.id;
+
+    // Check if review cycle exists
+    const { default: ReviewCycle } = await import('../models/ReviewCycle.js');
+    const reviewCycle = await ReviewCycle.findById(reviewCycleId);
+    if (!reviewCycle) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review cycle not found'
+      });
+    }
+
+    // Check if user is a participant in this cycle
+    const isParticipant = reviewCycle.participants.some((p) => p.userId.equals(userId));
+    if (!isParticipant && !['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view nominations for this review cycle'
+      });
+    }
+
+    // Find nominations made by this user for this review cycle
+    const nominations = await ReviewSubmission.find({
+      reviewCycleId,
+      nominatedBy: userId,
+      reviewType: 'peer',
+      isNominated: true
+    })
+      .populate('reviewerId', 'firstName lastName email department')
+      .select('reviewerId nominatedAt status isNominated');
+
+    // Transform the data to match frontend expectations
+    const transformedNominations = nominations.map((nom) => ({
+      userId: nom.reviewerId._id,
+      user: nom.reviewerId,
+      status: nom.status === 'submitted' ? 'submitted' : 'pending',
+      nominatedAt: nom.nominatedAt,
+      reason: '' // We don't store reason in ReviewSubmission model currently
+    }));
+
+    res.json({
+      success: true,
+      data: transformedNominations
+    });
+  } catch (error) {
+    console.error('Error fetching review cycle nominations:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch nominations',
       error: error.message
     });
   }

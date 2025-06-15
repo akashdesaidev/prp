@@ -16,7 +16,8 @@ import {
 const router = Router();
 
 router.use(auth);
-router.get('/', rbac(['admin', 'hr', 'manager']), listUsers);
+// Allow all authenticated users to list users for feedback purposes, but restrict data based on role
+router.get('/', listUsers);
 router.post('/', rbac(['admin', 'hr']), createUser);
 router.get('/:id', rbac(['admin', 'hr', 'manager']), getUser);
 router.patch('/:id', rbac(['admin', 'hr']), updateUser);

@@ -52,11 +52,10 @@ const idValidation = [param('id').isMongoId().withMessage('Invalid review cycle 
 
 // @route   GET /api/v1/review-cycles
 // @desc    Get all review cycles with filtering
-// @access  Admin, HR, Manager
+// @access  All authenticated users (with role-based data filtering)
 router.get(
   '/',
   auth,
-  rbac(['admin', 'hr', 'manager']),
   [
     query('status').optional().isIn(['all', 'draft', 'active', 'grace-period', 'closed']),
     query('type').optional().isIn(['all', 'quarterly', 'half-yearly', 'annual', 'custom']),

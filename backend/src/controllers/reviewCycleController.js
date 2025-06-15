@@ -7,15 +7,31 @@ import { validationResult } from 'express-validator';
 export const getReviewCycles = async (req, res) => {
   try {
     const { status, type, page = 1, limit = 10 } = req.query;
+    const userRole = req.user.role;
+    const userId = req.user.id;
 
-    const query = {};
+    let query = {};
     if (status && status !== 'all') query.status = status;
     if (type && type !== 'all') query.type = type;
 
-    console.log('Query filters:', { status, type, query });
+    console.log('Query filters:', { status, type, query, userRole });
 
-    // Simplified query - just get the data without complex operations first
-    const reviewCycles = await ReviewCycle.find(query);
+    // Role-based filtering
+    if (userRole === 'employee') {
+      // Employees can only see active/grace-period cycles they're participating in
+      query.status = { $in: ['active', 'grace-period'] };
+      query['participants.userId'] = userId;
+    } else if (userRole === 'manager') {
+      // Managers can see all cycles but with some restrictions
+      // For now, let them see all cycles like admin/hr
+    }
+    // Admin and HR can see all cycles without additional filtering
+
+    const reviewCycles = await ReviewCycle.find(query)
+      .populate('createdBy', 'firstName lastName email')
+      .populate('participants.userId', 'firstName lastName email role')
+      .sort({ createdAt: -1 });
+
     console.log('Found review cycles (before pagination):', reviewCycles.length);
 
     // Apply pagination manually
@@ -27,9 +43,19 @@ export const getReviewCycles = async (req, res) => {
 
     const total = reviewCycles.length;
 
+    // Transform questions to include type field for frontend compatibility
+    const transformedCycles = paginatedCycles.map((cycle) => ({
+      ...cycle.toObject(),
+      questions: cycle.questions.map((q) => ({
+        ...q.toObject(),
+        type: q.requiresRating ? 'rating_text' : 'text', // Add type field based on requiresRating
+        text: q.question // Also map question field to text for frontend compatibility
+      }))
+    }));
+
     res.json({
       success: true,
-      data: paginatedCycles,
+      data: transformedCycles,
       pagination: {
         current: parseInt(page),
         pages: Math.ceil(total / limit),
@@ -60,9 +86,19 @@ export const getReviewCycle = async (req, res) => {
       });
     }
 
+    // Transform questions to include type field for frontend compatibility
+    const transformedReviewCycle = {
+      ...reviewCycle.toObject(),
+      questions: reviewCycle.questions.map((q) => ({
+        ...q.toObject(),
+        type: q.requiresRating ? 'rating_text' : 'text', // Add type field based on requiresRating
+        text: q.question // Also map question field to text for frontend compatibility
+      }))
+    };
+
     res.json({
       success: true,
-      data: reviewCycle
+      data: transformedReviewCycle
     });
   } catch (error) {
     console.error('Error fetching review cycle:', error);
@@ -119,6 +155,16 @@ export const createReviewCycle = async (req, res) => {
       });
     }
 
+    // Transform questions from frontend format to backend format
+    const transformedQuestions = (questions || []).map((q, index) => ({
+      category: q.category || 'overall',
+      question: q.question || q.text || '', // Support both 'question' and 'text' fields
+      requiresRating: q.requiresRating !== undefined ? q.requiresRating : true,
+      ratingScale: q.ratingScale || 10,
+      isRequired: q.isRequired !== undefined ? q.isRequired : true,
+      order: q.order !== undefined ? q.order : index
+    }));
+
     // Create review cycle
     const reviewCycle = new ReviewCycle({
       name,
@@ -134,7 +180,7 @@ export const createReviewCycle = async (req, res) => {
       },
       minPeerReviewers: minPeerReviewers || 3,
       maxPeerReviewers: maxPeerReviewers || 5,
-      questions: questions || [],
+      questions: transformedQuestions,
       createdBy: req.user.id,
       isEmergency: isEmergency || false
     });
@@ -227,14 +273,42 @@ export const updateReviewCycle = async (req, res) => {
       allowedUpdates.push('status');
     }
 
-    // Update allowed fields
+    // Store old status to check for transitions
+    const oldStatus = reviewCycle.status;
+
+    // Update allowed fields with special handling for questions
     allowedUpdates.forEach((field) => {
       if (req.body[field] !== undefined) {
-        reviewCycle[field] = req.body[field];
+        if (field === 'questions') {
+          // Transform questions from frontend format to backend format
+          const transformedQuestions = req.body.questions.map((q, index) => ({
+            category: q.category || 'overall',
+            question: q.question || q.text || '', // Support both 'question' and 'text' fields
+            requiresRating: q.requiresRating !== undefined ? q.requiresRating : true,
+            ratingScale: q.ratingScale || 10,
+            isRequired: q.isRequired !== undefined ? q.isRequired : true,
+            order: q.order !== undefined ? q.order : index
+          }));
+          reviewCycle[field] = transformedQuestions;
+        } else {
+          reviewCycle[field] = req.body[field];
+        }
       }
     });
 
     await reviewCycle.save();
+
+    // Auto-create review submissions when cycle becomes active
+    if (oldStatus !== 'active' && reviewCycle.status === 'active') {
+      try {
+        const { createReviewSubmissionsForCycle } = await import('./reviewSubmissionController.js');
+        await createReviewSubmissionsForCycle(reviewCycle._id);
+        console.log(`Auto-created review submissions for cycle: ${reviewCycle.name}`);
+      } catch (error) {
+        console.error('Error auto-creating review submissions:', error);
+        // Don't fail the update if submission creation fails
+      }
+    }
 
     res.json({
       success: true,

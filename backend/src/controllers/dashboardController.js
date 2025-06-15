@@ -3,6 +3,7 @@ import OKR from '../models/OKR.js';
 import TimeEntry from '../models/TimeEntry.js';
 import Feedback from '../models/Feedback.js';
 import ReviewCycle from '../models/ReviewCycle.js';
+import ReviewSubmission from '../models/ReviewSubmission.js';
 import logger from '../utils/logger.js';
 
 // @desc    Get recent activity for dashboard
@@ -81,8 +82,52 @@ export const getRecentActivity = async (req, res) => {
       });
     });
 
+    // Recent review submissions (last 7 days)
+    const recentReviews = await ReviewSubmission.find({
+      reviewerId: userId,
+      updatedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+    })
+      .sort({ updatedAt: -1 })
+      .limit(3)
+      .populate('revieweeId', 'firstName lastName')
+      .populate('reviewCycleId', 'name');
+
+    recentReviews.forEach((review) => {
+      const revieweeName = `${review.revieweeId.firstName} ${review.revieweeId.lastName}`;
+      const actionText = review.status === 'submitted' ? 'Submitted' : 'Updated';
+
+      activities.push({
+        type: 'review_activity',
+        title: `${actionText} ${review.reviewType} review for ${revieweeName}`,
+        description: `${review.reviewType} review in ${review.reviewCycleId.name} cycle`,
+        timestamp: review.updatedAt,
+        icon: 'file-text',
+        color: 'indigo'
+      });
+    });
+
+    // Ensure diverse activity types - limit each type to prevent dominance
+    const maxPerType = Math.ceil(limit / 3); // Allow max 1/3 of activities from each type
+    const diverseActivities = [];
+
+    // Group by type
+    const groupedActivities = activities.reduce((acc, activity) => {
+      const type = activity.type;
+      if (!acc[type]) acc[type] = [];
+      acc[type].push(activity);
+      return acc;
+    }, {});
+
+    // Take balanced samples from each type
+    Object.values(groupedActivities).forEach((typeActivities) => {
+      typeActivities
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .slice(0, maxPerType)
+        .forEach((activity) => diverseActivities.push(activity));
+    });
+
     // Sort all activities by timestamp and limit
-    const sortedActivities = activities
+    const sortedActivities = diverseActivities
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
       .slice(0, limit);
 

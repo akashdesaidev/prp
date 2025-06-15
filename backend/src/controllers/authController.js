@@ -26,7 +26,13 @@ export const register = async (req, res) => {
     if (user) return res.status(400).json({ error: 'User already exists' });
     const hashed = await bcrypt.hash(password, 10);
     user = await User.create({ email, password: hashed, firstName, lastName });
-    const payload = { id: user._id, role: user.role };
+    const payload = {
+      id: user._id,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email
+    };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
     return res.status(201).json({ accessToken, refreshToken });
@@ -49,7 +55,13 @@ export const login = async (req, res) => {
     if (!user) return res.status(400).json({ error: 'Invalid credentials' });
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ error: 'Invalid credentials' });
-    const payload = { id: user._id, role: user.role };
+    const payload = {
+      id: user._id,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email
+    };
     const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
     return res.json({ accessToken, refreshToken });
@@ -73,10 +85,49 @@ export const refresh = async (req, res) => {
     if (!user || !user.isActive) {
       return res.status(401).json({ error: 'Invalid refresh token' });
     }
-    const payload = { id: decoded.id, role: decoded.role };
+    const payload = {
+      id: user._id,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email
+    };
     const accessToken = generateAccessToken(payload);
     return res.json({ accessToken });
   } catch (err) {
     return res.status(401).json({ error: 'Invalid refresh token' });
+  }
+};
+
+// Get current user profile
+export const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id)
+      .select('-password')
+      .populate('managerId', 'firstName lastName email');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        department: user.department,
+        managerId: user.managerId,
+        isActive: user.isActive,
+        notificationPreferences: user.notificationPreferences,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      }
+    });
+  } catch (error) {
+    console.error('Get me error:', error);
+    res.status(500).json({ error: 'Server error' });
   }
 };

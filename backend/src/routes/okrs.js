@@ -9,7 +9,8 @@ import {
   addKeyResult,
   getOKRTags,
   updateProgress,
-  getProgressHistory
+  getProgressHistory,
+  getOKRHierarchy
 } from '../controllers/okrController.js';
 import auth from '../middleware/auth.js';
 import rbac from '../middleware/rbac.js';
@@ -19,14 +20,15 @@ const router = express.Router();
 // All routes require authentication
 router.use(auth);
 
-// OKR routes
+// OKR routes - specific routes MUST come before generic /:id routes
 router.post('/', rbac(['admin', 'hr', 'manager']), createOKR);
 router.get('/', getOKRs);
+router.get('/hierarchy', getOKRHierarchy); // Hierarchy endpoint
 router.get('/tags', getOKRTags);
-router.get('/:id', getOKR);
+router.put('/:id/progress', updateProgress); // Specific route first
+router.get('/:id/progress-history', getProgressHistory); // Specific route first
+router.get('/:id', getOKR); // Generic route after specific ones
 router.patch('/:id', updateOKR);
-router.put('/:id/progress', updateProgress);
-router.get('/:id/progress-history', getProgressHistory);
 router.delete('/:id', rbac(['admin']), deleteOKR);
 
 // Key Result routes

@@ -193,4 +193,24 @@ router.post(
   feedbackController.moderateFeedback
 );
 
+// @route   GET /api/v1/feedback/analytics/sentiment
+// @desc    Get sentiment analysis for feedback
+// @access  All authenticated users (own data) or Admin/HR (org data)
+router.get(
+  '/analytics/sentiment',
+  auth,
+  [
+    query('timeRange')
+      .optional()
+      .isIn(['7d', '30d', '90d', '6m', '1y'])
+      .withMessage('Invalid time range'),
+    query('userId').optional().isMongoId().withMessage('Invalid user ID'),
+    query('teamId').optional().isMongoId().withMessage('Invalid team ID'),
+    query('category')
+      .optional()
+      .isIn(['skills', 'values', 'initiatives', 'goals', 'collaboration', 'leadership'])
+  ],
+  feedbackController.getSentimentAnalytics
+);
+
 export default router;
