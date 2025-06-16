@@ -410,3 +410,170 @@ export const getAllFeedbackForModeration = async (req, res) => {
     });
   }
 };
+
+// Get feedback sentiment analytics
+export const getFeedbackSentimentAnalytics = async (req, res) => {
+  try {
+    const { timeRange = '30d', userId, departmentId } = req.query;
+
+    console.log('📊 Getting sentiment analytics:', { timeRange, userId, departmentId });
+
+    // Build date filter based on time range
+    let dateFilter = {};
+    if (timeRange) {
+      const now = new Date();
+      let startDate;
+
+      switch (timeRange) {
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case '1y':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+
+      dateFilter.createdAt = { $gte: startDate };
+    }
+
+    // Build user filter
+    let userFilter = {};
+    if (userId) {
+      userFilter.toUserId = userId;
+    } else if (req.user.role === 'manager') {
+      // Managers can only see their team's sentiment
+      const teamMembers = await User.find({ managerId: req.user.id }).select('_id');
+      const teamIds = teamMembers.map((member) => member._id);
+      teamIds.push(req.user.id); // Include manager's own feedback
+      userFilter.toUserId = { $in: teamIds };
+    } else if (req.user.role === 'employee') {
+      // Employees can only see their own sentiment
+      userFilter.toUserId = req.user.id;
+    }
+    // Admin and HR can see all (no filter)
+
+    const matchStage = {
+      status: 'active',
+      sentimentScore: { $exists: true },
+      ...dateFilter,
+      ...userFilter
+    };
+
+    console.log('🔍 Match stage:', matchStage);
+
+    // Aggregate sentiment data
+    const sentimentAggregation = await Feedback.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: '$sentimentScore',
+          count: { $sum: 1 },
+          averageRating: { $avg: '$rating' }
+        }
+      }
+    ]);
+
+    // Get sentiment trends over time
+    const trendAggregation = await Feedback.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: {
+            sentiment: '$sentimentScore',
+            date: {
+              $dateToString: {
+                format: '%Y-%m-%d',
+                date: '$createdAt'
+              }
+            }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.date': 1 } }
+    ]);
+
+    // Calculate totals and percentages
+    const totalFeedback = sentimentAggregation.reduce((sum, item) => sum + item.count, 0);
+
+    const sentimentBreakdown = {
+      positive: sentimentAggregation.find((s) => s._id === 'positive') || {
+        count: 0,
+        averageRating: 0
+      },
+      neutral: sentimentAggregation.find((s) => s._id === 'neutral') || {
+        count: 0,
+        averageRating: 0
+      },
+      negative: sentimentAggregation.find((s) => s._id === 'negative') || {
+        count: 0,
+        averageRating: 0
+      }
+    };
+
+    // Calculate percentages
+    Object.keys(sentimentBreakdown).forEach((sentiment) => {
+      sentimentBreakdown[sentiment].percentage =
+        totalFeedback > 0
+          ? Math.round((sentimentBreakdown[sentiment].count / totalFeedback) * 100)
+          : 0;
+    });
+
+    const analytics = {
+      overview: {
+        totalFeedback,
+        timeRange,
+        breakdown: sentimentBreakdown
+      },
+      trends: trendAggregation.reduce((acc, item) => {
+        const date = item._id.date;
+        if (!acc[date]) {
+          acc[date] = { positive: 0, neutral: 0, negative: 0 };
+        }
+        acc[date][item._id.sentiment] = item.count;
+        return acc;
+      }, {}),
+      insights: {
+        dominantSentiment:
+          totalFeedback > 0
+            ? Object.keys(sentimentBreakdown).reduce((a, b) =>
+                sentimentBreakdown[a].count > sentimentBreakdown[b].count ? a : b
+              )
+            : 'neutral',
+        improvementNeeded: sentimentBreakdown.negative.percentage > 20,
+        overallHealth:
+          sentimentBreakdown.positive.percentage > 60
+            ? 'good'
+            : sentimentBreakdown.positive.percentage > 40
+              ? 'moderate'
+              : 'needs_attention'
+      }
+    };
+
+    console.log('📈 Sentiment analytics generated:', {
+      totalFeedback,
+      dominantSentiment: analytics.insights.dominantSentiment,
+      health: analytics.insights.overallHealth
+    });
+
+    res.json({
+      success: true,
+      data: analytics
+    });
+  } catch (error) {
+    console.error('❌ Error getting sentiment analytics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get sentiment analytics',
+      error: error.message
+    });
+  }
+};

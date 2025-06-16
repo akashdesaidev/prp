@@ -193,4 +193,19 @@ router.post(
   feedbackController.moderateFeedback
 );
 
+// @route   GET /api/v1/feedback/analytics/sentiment
+// @desc    Get sentiment analysis for feedback
+// @access  Admin, HR, Manager
+router.get(
+  '/analytics/sentiment',
+  auth,
+  rbac(['admin', 'hr', 'manager']),
+  [
+    query('timeRange').optional().isString().withMessage('Time range must be a string'),
+    query('userId').optional().isMongoId().withMessage('Invalid user ID'),
+    query('departmentId').optional().isMongoId().withMessage('Invalid department ID')
+  ],
+  feedbackController.getFeedbackSentimentAnalytics
+);
+
 export default router;

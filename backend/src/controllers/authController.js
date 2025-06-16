@@ -80,3 +80,43 @@ export const refresh = async (req, res) => {
     return res.status(401).json({ error: 'Invalid refresh token' });
   }
 };
+
+// Get current user
+export const me = async (req, res) => {
+  try {
+    // req.user is set by the auth middleware
+    const user = await User.findById(req.user.id).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    return res.json({
+      success: true,
+      data: user
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+// Simple test endpoint
+export const test = async (req, res) => {
+  try {
+    return res.json({
+      success: true,
+      message: 'Test endpoint working',
+      user: req.user
+        ? {
+            id: req.user.id,
+            email: req.user.email,
+            firstName: req.user.firstName,
+            lastName: req.user.lastName,
+            role: req.user.role
+          }
+        : null
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+};

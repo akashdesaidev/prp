@@ -400,3 +400,71 @@ export const getProgressHistory = async (req, res, next) => {
     return next(err);
   }
 };
+
+export const getOKRHierarchy = async (req, res, next) => {
+  try {
+    console.log('🌲 getOKRHierarchy called by user:', req.user.email, 'role:', req.user.role);
+
+    let filter = {};
+
+    // Role-based filtering
+    if (req.user.role === 'employee') {
+      filter.assignedTo = req.user.id;
+    } else if (req.user.role === 'manager') {
+      // Managers can see their team's OKRs
+      const teamMembers = await User.find({ managerId: req.user.id }).select('_id');
+      const teamIds = teamMembers.map((member) => member._id);
+      teamIds.push(req.user.id); // Include manager's own OKRs
+      filter.assignedTo = { $in: teamIds };
+    }
+    // Admin and HR can see all OKRs (no filter)
+
+    console.log('🔍 Filter applied:', filter);
+
+    // Get all OKRs with population
+    const okrs = await OKR.find(filter)
+      .populate('assignedTo', 'firstName lastName email')
+      .populate('createdBy', 'firstName lastName email')
+      .populate('parentOkrId', 'title type')
+      .sort({ type: 1, createdAt: -1 });
+
+    console.log(`📊 Found ${okrs.length} OKRs`);
+
+    // Build hierarchy structure
+    const hierarchy = {
+      company: [],
+      department: [],
+      team: [],
+      individual: []
+    };
+
+    // Group OKRs by type and add children
+    okrs.forEach((okr) => {
+      if (hierarchy[okr.type]) {
+        const okrObj = okr.toObject();
+
+        // Find children for this OKR
+        okrObj.children = okrs
+          .filter(
+            (childOkr) =>
+              childOkr.parentOkrId && childOkr.parentOkrId._id.toString() === okr._id.toString()
+          )
+          .map((child) => child.toObject());
+
+        hierarchy[okr.type].push(okrObj);
+      }
+    });
+
+    console.log('🌲 Hierarchy built:', {
+      company: hierarchy.company.length,
+      department: hierarchy.department.length,
+      team: hierarchy.team.length,
+      individual: hierarchy.individual.length
+    });
+
+    return res.json(hierarchy);
+  } catch (err) {
+    console.error('❌ Error getting OKR hierarchy:', err);
+    return next(err);
+  }
+};

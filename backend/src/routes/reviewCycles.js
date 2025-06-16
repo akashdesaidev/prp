@@ -29,7 +29,8 @@ const createReviewCycleValidation = [
   body('maxPeerReviewers')
     .optional()
     .isInt({ min: 1, max: 20 })
-    .withMessage('Maximum peer reviewers must be between 1 and 20')
+    .withMessage('Maximum peer reviewers must be between 1 and 20'),
+  body('questions').optional().isArray().withMessage('Questions must be an array')
 ];
 
 const updateReviewCycleValidation = [

@@ -119,6 +119,45 @@ export const createReviewCycle = async (req, res) => {
       });
     }
 
+    // Prepare questions with defaults if empty
+    const defaultQuestions = [
+      {
+        category: 'skills',
+        question: "How would you rate this person's technical skills and competencies?",
+        requiresRating: true,
+        ratingScale: 10,
+        isRequired: true,
+        order: 1
+      },
+      {
+        category: 'values',
+        question: 'How well does this person demonstrate company values and culture?',
+        requiresRating: true,
+        ratingScale: 10,
+        isRequired: true,
+        order: 2
+      },
+      {
+        category: 'overall',
+        question: 'Please provide specific examples of achievements and areas for improvement.',
+        requiresRating: false,
+        isRequired: true,
+        order: 3
+      }
+    ];
+
+    const finalQuestions =
+      questions && questions.length > 0
+        ? questions.map((q, index) => ({
+            category: q.category || 'skills',
+            question: q.question || q.text || q.title || 'No question provided',
+            requiresRating: q.requiresRating !== undefined ? q.requiresRating : true,
+            ratingScale: q.ratingScale || 10,
+            isRequired: q.isRequired !== undefined ? q.isRequired : true,
+            order: q.order || index + 1
+          }))
+        : defaultQuestions;
+
     // Create review cycle
     const reviewCycle = new ReviewCycle({
       name,
@@ -134,7 +173,7 @@ export const createReviewCycle = async (req, res) => {
       },
       minPeerReviewers: minPeerReviewers || 3,
       maxPeerReviewers: maxPeerReviewers || 5,
-      questions: questions || [],
+      questions: finalQuestions,
       createdBy: req.user.id,
       isEmergency: isEmergency || false
     });

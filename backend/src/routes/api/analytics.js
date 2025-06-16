@@ -5,6 +5,16 @@ import rbac from '../../middleware/rbac.js';
 
 const router = express.Router();
 
+// @route   GET /api/v1/analytics/dashboard
+// @desc    Get analytics dashboard (alias for summary)
+// @access  Admin, HR, Manager
+router.get(
+  '/dashboard',
+  auth,
+  rbac(['admin', 'hr', 'manager']),
+  analyticsController.getAnalyticsSummary
+);
+
 // @route   GET /api/v1/analytics/summary
 // @desc    Get analytics summary dashboard
 // @access  Admin, HR, Manager
