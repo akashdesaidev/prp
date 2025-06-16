@@ -34,22 +34,38 @@ export default function OKRSearchFilter({ onFiltersChange, initialFilters = {} }
 
   const fetchFilterData = async () => {
     try {
-      // Fetch users, departments, and tags for filter options
+      // Fetch data for filter options, with error handling for permission issues
+      const fetchPromises = [];
+
+      // Try to fetch users (may fail for employees due to permissions)
+      const usersPromise = fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
+      }).catch(() => ({ ok: false, status: 403 }));
+
+      // Fetch departments
+      const departmentsPromise = fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/departments`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
+      });
+
+      // Fetch tags
+      const tagsPromise = fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/okrs/tags`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
+      });
+
       const [usersRes, departmentsRes, tagsRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-        }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/departments`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-        }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/okrs/tags`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-        })
+        usersPromise,
+        departmentsPromise,
+        tagsPromise
       ]);
 
+      // Handle users response (may be 403 for employees)
       if (usersRes.ok) {
         const usersData = await usersRes.json();
         setUsers(usersData);
+      } else if (usersRes.status === 403) {
+        // Employee users don't have access to user list - that's expected
+        console.log('User list not available (insufficient permissions)');
+        setUsers([]);
       }
 
       if (departmentsRes.ok) {
@@ -199,25 +215,27 @@ export default function OKRSearchFilter({ onFiltersChange, initialFilters = {} }
       {showAdvanced && (
         <div className="border-t border-gray-200 pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-            {/* Assigned To Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <User className="inline h-4 w-4 mr-1" />
-                Assigned To
-              </label>
-              <select
-                value={filters.assignedTo}
-                onChange={(e) => updateFilter('assignedTo', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="all">All Users</option>
-                {users.map((user) => (
-                  <option key={user._id} value={user._id}>
-                    {user.firstName} {user.lastName}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Assigned To Filter - Only show if user has access to user list */}
+            {users.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <User className="inline h-4 w-4 mr-1" />
+                  Assigned To
+                </label>
+                <select
+                  value={filters.assignedTo}
+                  onChange={(e) => updateFilter('assignedTo', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="all">All Users</option>
+                  {users.map((user) => (
+                    <option key={user._id} value={user._id}>
+                      {user.firstName} {user.lastName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Department Filter */}
             <div>

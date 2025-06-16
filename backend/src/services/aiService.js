@@ -152,6 +152,111 @@ class AIService {
     }
   }
 
+  async generateQuestionResponse(reviewData) {
+    try {
+      // Try OpenAI first
+      const response = await this.openaiClient.post('/chat/completions', {
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a helpful HR assistant generating specific answers to performance review questions. Provide professional, constructive responses based on the employee data provided.'
+          },
+          {
+            role: 'user',
+            content: `Answer this specific review question for ${reviewData.revieweeName}:
+
+Question: "${reviewData.question}"
+Requires Rating: ${reviewData.requiresRating ? 'Yes (1-10 scale)' : 'No'}
+
+Employee Context:
+- Past Feedback: ${reviewData.pastFeedback || 'No previous feedback available'}
+- OKR Progress: ${reviewData.okrProgress || 'No OKR data available'}
+
+Please provide:
+1. A specific answer to the question (2-3 sentences)
+${reviewData.requiresRating ? '2. A rating from 1-10 (where 1=poor, 10=exceptional)' : ''}
+
+Format your response as:
+Response: [your answer here]
+${reviewData.requiresRating ? 'Rating: [number]' : ''}`
+          }
+        ],
+        max_tokens: 300,
+        temperature: 0.7
+      });
+
+      const aiResponse = response.data.choices[0].message.content;
+
+      // Parse the response to extract answer and rating
+      const responseMatch = aiResponse.match(/Response:\s*(.+?)(?=Rating:|$)/s);
+      const ratingMatch = reviewData.requiresRating ? aiResponse.match(/Rating:\s*(\d+)/) : null;
+
+      return {
+        success: true,
+        response: responseMatch ? responseMatch[1].trim() : aiResponse,
+        rating: ratingMatch ? parseInt(ratingMatch[1]) : null,
+        provider: 'openai'
+      };
+    } catch (openAIError) {
+      logger.warn(
+        'OpenAI failed for question response, trying Gemini fallback',
+        openAIError.message
+      );
+
+      try {
+        // Fallback to Gemini
+        const response = await this.geminiClient.post('/models/gemini-1.5-flash:generateContent', {
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Answer this performance review question for ${reviewData.revieweeName}:
+                  
+Question: "${reviewData.question}"
+${reviewData.requiresRating ? 'Also provide a rating from 1-10.' : ''}
+
+Context:
+- Past Feedback: ${reviewData.pastFeedback || 'No previous feedback available'}
+- OKR Progress: ${reviewData.okrProgress || 'No OKR data available'}
+
+Provide a professional, specific answer in 2-3 sentences.`
+                }
+              ]
+            }
+          ]
+        });
+
+        const aiResponse = response.data.candidates[0].content.parts[0].text;
+
+        // Simple parsing for Gemini response
+        const ratingMatch = reviewData.requiresRating
+          ? aiResponse.match(/(\d+)\/10|rating.*?(\d+)|(\d+)\s*out\s*of\s*10/i)
+          : null;
+        const rating = ratingMatch
+          ? parseInt(ratingMatch[1] || ratingMatch[2] || ratingMatch[3])
+          : null;
+
+        return {
+          success: true,
+          response: aiResponse,
+          rating: rating,
+          provider: 'gemini'
+        };
+      } catch (geminiError) {
+        logger.error('Both AI providers failed for question response', {
+          openAIError,
+          geminiError
+        });
+        return {
+          success: false,
+          error: 'AI question response temporarily unavailable'
+        };
+      }
+    }
+  }
+
   async analyzeSentiment(text) {
     try {
       const response = await this.openaiClient.post('/chat/completions', {

@@ -37,6 +37,17 @@ export default function ReviewsPage() {
     fetchStats();
   }, [filters]);
 
+  useEffect(() => {
+    // Listen for refresh events from modal
+    const handleRefresh = () => {
+      fetchReviewCycles();
+      fetchStats();
+    };
+
+    window.addEventListener('refreshReviewCycles', handleRefresh);
+    return () => window.removeEventListener('refreshReviewCycles', handleRefresh);
+  }, []);
+
   const fetchReviewCycles = async () => {
     try {
       setLoading(true);

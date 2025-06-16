@@ -368,6 +368,11 @@ export default function ReviewCyclesTable({
         onClose={() => {
           setShowDetailsModal(false);
           setSelectedCycle(null);
+          // Refresh the parent data when modal closes
+          if (onUpdate) {
+            // Call a refresh by triggering a re-fetch in the parent
+            window.dispatchEvent(new CustomEvent('refreshReviewCycles'));
+          }
         }}
         cycle={selectedCycle}
         onUpdate={onUpdate}

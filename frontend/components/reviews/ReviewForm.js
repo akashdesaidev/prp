@@ -108,8 +108,10 @@ export default function ReviewForm({
 
             <div className="flex-1">
               <h3 className="font-medium text-gray-900 mb-2">
-                {question.text}
-                {question.required && <span className="text-red-500 ml-1">*</span>}
+                {question.text || question.question || question.questionText || 'Question'}
+                {(question.required || question.isRequired) && (
+                  <span className="text-red-500 ml-1">*</span>
+                )}
               </h3>
 
               {question.description && (
@@ -188,7 +190,7 @@ export default function ReviewForm({
         {/* Progress indicator */}
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between text-xs text-gray-500">
-            <span>{question.required ? 'Required' : 'Optional'}</span>
+            <span>{question.required || question.isRequired ? 'Required' : 'Optional'}</span>
 
             <span
               className={`px-2 py-1 rounded-full ${
@@ -237,12 +239,26 @@ export default function ReviewForm({
     return totalQuestions > 0 ? Math.round((completedQuestions / totalQuestions) * 100) : 0;
   };
 
+  // Debug logging
+  console.log('ReviewForm Debug:', {
+    review: !!review,
+    reviewCycleId: !!review?.reviewCycleId,
+    questions: review?.reviewCycleId?.questions?.length || 0,
+    questionsArray: review?.reviewCycleId?.questions,
+    formDataResponses: formData?.responses?.length || 0
+  });
+
   if (!review?.reviewCycleId?.questions) {
+    console.log('No questions found - showing fallback message');
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
         <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">No questions available</h3>
         <p className="text-gray-500">This review cycle doesn't have any questions configured.</p>
+        <div className="mt-4 text-xs text-gray-400">
+          Debug: review={!!review}, reviewCycleId={!!review?.reviewCycleId}, questions=
+          {review?.reviewCycleId?.questions?.length || 0}
+        </div>
       </div>
     );
   }
@@ -296,6 +312,7 @@ export default function ReviewForm({
                 reviewType={isReviewType}
                 onSuggestionGenerated={handleAISuggestion}
                 className="bg-white shadow-sm"
+                hasExistingSuggestion={!!review?.aiSuggestions?.suggestedComments}
               />
             )}
 

@@ -11,7 +11,8 @@ export default function AISuggestionButton({
   reviewType,
   onSuggestionGenerated,
   disabled = false,
-  className = ''
+  className = '',
+  hasExistingSuggestion = false
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -66,7 +67,7 @@ export default function AISuggestionButton({
       ) : (
         <>
           <Sparkles className="h-4 w-4" />
-          Suggest Draft
+          {hasExistingSuggestion ? 'Regenerate Draft' : 'Suggest Draft'}
         </>
       )}
     </Button>

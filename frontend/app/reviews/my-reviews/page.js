@@ -59,9 +59,8 @@ export default function MyReviewsPage() {
 
   const fetchActiveCycles = async () => {
     try {
-      const response = await api.get('/review-cycles', {
-        params: { status: 'active' }
-      });
+      // Use the dedicated endpoint for user's active review cycles
+      const response = await api.get('/review-cycles/my-active');
       setActiveCycles(response.data.data || []);
     } catch (error) {
       console.error('Error fetching active cycles:', error);
@@ -77,6 +76,25 @@ export default function MyReviewsPage() {
         </span>
       );
     }
+
+    // Show "Draft" for reviews that have actual content (AI suggestions, responses, or populated response fields)
+    const hasAIContent = !!(review.aiSuggestions?.suggestedComments?.length > 0);
+    const hasResponses = !!(review.responses?.length > 0);
+    const hasComments = !!(review.comments?.length > 0);
+    const hasPopulatedResponses = review.responses?.some((r) => r.response?.trim() || r.rating > 0);
+
+    if (
+      review.status === 'draft' &&
+      (hasAIContent || hasResponses || hasComments || hasPopulatedResponses)
+    ) {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          <FileText className="w-3 h-3 mr-1" />
+          Draft
+        </span>
+      );
+    }
+
     return (
       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
         <Clock className="w-3 h-3 mr-1" />

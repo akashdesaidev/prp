@@ -18,11 +18,23 @@ export default function OKRHierarchyView({ selectedOkrId, onOkrSelect }) {
       setLoading(true);
       const response = await api.get('/okrs/hierarchy');
       console.log('🌳 Hierarchy API response:', response.data);
-      setHierarchyData(response.data || []);
+
+      // Handle the backend response structure which is { company: [], department: [], team: [], individual: [] }
+      let hierarchyArray = [];
+      if (response.data && typeof response.data === 'object') {
+        // Flatten the hierarchy structure from backend
+        const { company = [], department = [], team = [], individual = [] } = response.data;
+        hierarchyArray = [...company, ...department, ...team, ...individual];
+      } else if (Array.isArray(response.data)) {
+        hierarchyArray = response.data;
+      }
+
+      console.log('🌳 Processed hierarchy array:', hierarchyArray);
+      setHierarchyData(hierarchyArray);
 
       // Auto-expand company and department level OKRs
       const autoExpand = new Set();
-      response.data?.forEach((okr) => {
+      hierarchyArray.forEach((okr) => {
         if (okr.type === 'company' || okr.type === 'department') {
           autoExpand.add(okr._id);
         }
@@ -30,6 +42,7 @@ export default function OKRHierarchyView({ selectedOkrId, onOkrSelect }) {
       setExpandedNodes(autoExpand);
     } catch (error) {
       console.error('Error fetching OKR hierarchy:', error);
+      setHierarchyData([]); // Ensure it's always an array on error
     } finally {
       setLoading(false);
     }
@@ -89,6 +102,12 @@ export default function OKRHierarchyView({ selectedOkrId, onOkrSelect }) {
   };
 
   const buildHierarchyTree = (okrs, parentId = null) => {
+    // Ensure okrs is an array
+    if (!Array.isArray(okrs)) {
+      console.warn('🚨 buildHierarchyTree called with non-array:', okrs);
+      return [];
+    }
+
     return okrs
       .filter((okr) => {
         // Handle different parentOkrId formats
@@ -228,9 +247,12 @@ export default function OKRHierarchyView({ selectedOkrId, onOkrSelect }) {
   }
 
   console.log('🌲 Hierarchy data:', hierarchyData);
-  console.log('🌲 Starting tree build with parentId:', null);
-  const hierarchyTree = buildHierarchyTree(hierarchyData);
-  console.log('🌲 Final hierarchy tree:', hierarchyTree);
+
+  // Since the backend already builds the hierarchy with children,
+  // we just need to filter for root-level items (no parentOkrId)
+  const safeHierarchyData = Array.isArray(hierarchyData) ? hierarchyData : [];
+  const hierarchyTree = safeHierarchyData.filter((okr) => !okr.parentOkrId);
+  console.log('🌲 Root level OKRs:', hierarchyTree);
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">

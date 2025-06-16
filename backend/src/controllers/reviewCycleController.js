@@ -1,7 +1,207 @@
 import ReviewCycle from '../models/ReviewCycle.js';
+import ReviewSubmission from '../models/ReviewSubmission.js';
 import User from '../models/User.js';
 import notificationService from '../services/notificationService.js';
+import aiService from '../services/aiService.js';
+import Feedback from '../models/Feedback.js';
+import OKR from '../models/OKR.js';
 import { validationResult } from 'express-validator';
+
+// Helper function to generate AI suggestions for manager reviews
+const generateAISuggestionForManager = async (
+  revieweeId,
+  reviewCycleId,
+  reviewType = 'manager'
+) => {
+  try {
+    // Get reviewee information
+    const reviewee = await User.findById(revieweeId).select('firstName lastName email');
+    if (!reviewee) return null;
+
+    // Get review cycle with questions
+    const reviewCycle = await ReviewCycle.findById(reviewCycleId);
+    if (!reviewCycle || !reviewCycle.questions) return null;
+
+    // Gather data for AI suggestion
+    let pastFeedback = '';
+    let okrProgress = '';
+
+    // Get recent feedback for the reviewee (last 90 days)
+    const recentFeedback = await Feedback.find({
+      toUserId: revieweeId,
+      createdAt: { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) }
+    })
+      .populate('fromUserId', 'firstName lastName')
+      .limit(5)
+      .sort({ createdAt: -1 });
+
+    if (recentFeedback.length > 0) {
+      pastFeedback = recentFeedback
+        .map((f) => `From ${f.fromUserId.firstName} ${f.fromUserId.lastName}: ${f.content}`)
+        .join('\n');
+    }
+
+    // Get current OKRs and progress
+    const currentOKRs = await OKR.find({
+      assignedTo: revieweeId,
+      status: 'active'
+    }).limit(3);
+
+    if (currentOKRs.length > 0) {
+      okrProgress = currentOKRs
+        .map((okr) => {
+          const progress =
+            okr.keyResults.length > 0
+              ? Math.round(
+                  (okr.keyResults.reduce((sum, kr) => sum + (kr.score || 1), 0) /
+                    (okr.keyResults.length * 10)) *
+                    100
+                )
+              : 0;
+          return `${okr.title}: ${progress}% complete`;
+        })
+        .join('\n');
+    }
+
+    // Generate AI suggestions for each question
+    const questionResponses = [];
+
+    for (const question of reviewCycle.questions) {
+      const reviewData = {
+        revieweeName: `${reviewee.firstName} ${reviewee.lastName}`,
+        reviewType,
+        pastFeedback,
+        okrProgress,
+        question: question.question,
+        requiresRating: question.requiresRating
+      };
+
+      const aiResult = await aiService.generateQuestionResponse(reviewData);
+
+      if (aiResult.success) {
+        questionResponses.push({
+          questionId: question._id,
+          questionText: question.question,
+          response: aiResult.response,
+          rating: question.requiresRating ? aiResult.rating : null
+        });
+      } else {
+        // Fallback response if AI fails
+        questionResponses.push({
+          questionId: question._id,
+          questionText: question.question,
+          response: `Based on ${reviewee.firstName}'s recent performance and feedback, they have shown consistent progress in their role.`,
+          rating: question.requiresRating ? 7 : null
+        });
+      }
+    }
+
+    // Also generate general comments
+    const generalReviewData = {
+      revieweeName: `${reviewee.firstName} ${reviewee.lastName}`,
+      reviewType,
+      pastFeedback,
+      okrProgress
+    };
+
+    const generalAiResult = await aiService.generateReviewSuggestion(generalReviewData);
+
+    return {
+      suggestedComments: generalAiResult.success
+        ? generalAiResult.suggestion
+        : `${reviewee.firstName} has demonstrated solid performance this review period.`,
+      suggestedResponses: questionResponses,
+      usedSuggestion: false
+    };
+  } catch (error) {
+    console.error('Error generating AI suggestion:', error);
+    return null;
+  }
+};
+
+// Helper function to create review submissions for participants
+const createReviewSubmissionsForCycle = async (reviewCycle) => {
+  try {
+    console.log(`🔄 Creating review submissions for cycle: ${reviewCycle.name}`);
+
+    const submissions = [];
+
+    for (const participant of reviewCycle.participants) {
+      const userId = participant.userId;
+
+      // Create self-assessment submission
+      const existingSelfReview = await ReviewSubmission.findOne({
+        reviewCycleId: reviewCycle._id,
+        revieweeId: userId,
+        reviewerId: userId,
+        reviewType: 'self'
+      });
+
+      if (!existingSelfReview) {
+        const selfSubmission = new ReviewSubmission({
+          reviewCycleId: reviewCycle._id,
+          revieweeId: userId,
+          reviewerId: userId,
+          reviewType: 'self',
+          status: 'draft',
+          responses: []
+        });
+
+        await selfSubmission.save();
+        submissions.push(selfSubmission);
+        console.log(`✅ Created self-assessment for user ${userId}`);
+      }
+
+      // Create manager review submission (if user has a manager)
+      const user = await User.findById(userId).populate('managerId');
+      if (user && user.managerId) {
+        const existingManagerReview = await ReviewSubmission.findOne({
+          reviewCycleId: reviewCycle._id,
+          revieweeId: userId,
+          reviewerId: user.managerId._id,
+          reviewType: 'manager'
+        });
+
+        if (!existingManagerReview) {
+          // Generate AI suggestion for manager review
+          console.log(`🤖 Generating AI suggestion for manager review: ${userId}`);
+          const aiSuggestion = await generateAISuggestionForManager(
+            userId,
+            reviewCycle._id,
+            'manager'
+          );
+
+          const managerSubmission = new ReviewSubmission({
+            reviewCycleId: reviewCycle._id,
+            revieweeId: userId,
+            reviewerId: user.managerId._id,
+            reviewType: 'manager',
+            status: 'draft',
+            responses: aiSuggestion?.suggestedResponses || [],
+            aiSuggestions: aiSuggestion || {
+              suggestedComments: '',
+              usedSuggestion: false
+            }
+          });
+
+          await managerSubmission.save();
+          submissions.push(managerSubmission);
+          console.log(
+            `✅ Created manager review for user ${userId} (manager: ${user.managerId._id})${aiSuggestion ? ' with AI suggestion' : ''}`
+          );
+        }
+      }
+    }
+
+    console.log(
+      `🎉 Created ${submissions.length} review submissions for cycle ${reviewCycle.name}`
+    );
+    return submissions;
+  } catch (error) {
+    console.error('Error creating review submissions:', error);
+    throw error;
+  }
+};
 
 // Get all review cycles with filtering and pagination
 export const getReviewCycles = async (req, res) => {
@@ -273,7 +473,21 @@ export const updateReviewCycle = async (req, res) => {
       }
     });
 
+    // Check if status is changing to 'active' and create review submissions
+    const wasStatusChanged = req.body.status && req.body.status !== reviewCycle.status;
+    const isBecomingActive = req.body.status === 'active';
+
     await reviewCycle.save();
+
+    // Create review submissions when cycle becomes active
+    if (wasStatusChanged && isBecomingActive) {
+      try {
+        await createReviewSubmissionsForCycle(reviewCycle);
+      } catch (error) {
+        console.error('Error creating review submissions:', error);
+        // Don't fail the update if submission creation fails
+      }
+    }
 
     res.json({
       success: true,
@@ -372,6 +586,16 @@ export const assignParticipants = async (req, res) => {
 
     await reviewCycle.save();
 
+    // Create review submissions for newly assigned participants if cycle is active
+    if (reviewCycle.status === 'active') {
+      try {
+        await createReviewSubmissionsForCycle(reviewCycle);
+      } catch (error) {
+        console.error('Error creating review submissions:', error);
+        // Don't fail the assignment if submission creation fails
+      }
+    }
+
     res.json({
       success: true,
       message: 'Participants assigned successfully',
@@ -382,6 +606,61 @@ export const assignParticipants = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to assign participants',
+      error: error.message
+    });
+  }
+};
+
+// Remove participant from review cycle
+export const removeParticipant = async (req, res) => {
+  try {
+    const { id: reviewCycleId, userId } = req.params;
+
+    const reviewCycle = await ReviewCycle.findById(reviewCycleId);
+    if (!reviewCycle) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review cycle not found'
+      });
+    }
+
+    // Find and remove the participant
+    const participantIndex = reviewCycle.participants.findIndex(
+      (p) => p.userId.toString() === userId
+    );
+
+    if (participantIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Participant not found in this review cycle'
+      });
+    }
+
+    // Remove the participant
+    reviewCycle.participants.splice(participantIndex, 1);
+    await reviewCycle.save();
+
+    // Optionally, remove related review submissions
+    try {
+      await ReviewSubmission.deleteMany({
+        reviewCycleId: reviewCycleId,
+        $or: [{ revieweeId: userId }, { reviewerId: userId }]
+      });
+      console.log(`Removed review submissions for user ${userId} in cycle ${reviewCycleId}`);
+    } catch (error) {
+      console.error('Error removing review submissions:', error);
+      // Don't fail the removal if submission cleanup fails
+    }
+
+    res.json({
+      success: true,
+      message: 'Participant removed successfully'
+    });
+  } catch (error) {
+    console.error('Error removing participant:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to remove participant',
       error: error.message
     });
   }
@@ -532,6 +811,47 @@ export const debugReviewCycles = async (req, res) => {
     console.error('Debug error:', error);
     res.status(500).json({
       success: false,
+      error: error.message
+    });
+  }
+};
+
+// Generate review submissions for active cycles (manual trigger)
+export const generateReviewSubmissions = async (req, res) => {
+  try {
+    const reviewCycleId = req.params.id;
+
+    const reviewCycle = await ReviewCycle.findById(reviewCycleId);
+    if (!reviewCycle) {
+      return res.status(404).json({
+        success: false,
+        message: 'Review cycle not found'
+      });
+    }
+
+    if (reviewCycle.status !== 'active') {
+      return res.status(400).json({
+        success: false,
+        message: 'Can only generate submissions for active review cycles'
+      });
+    }
+
+    const submissions = await createReviewSubmissionsForCycle(reviewCycle);
+
+    res.json({
+      success: true,
+      message: `Generated ${submissions.length} review submissions`,
+      data: {
+        reviewCycleId: reviewCycle._id,
+        reviewCycleName: reviewCycle.name,
+        submissionsCreated: submissions.length
+      }
+    });
+  } catch (error) {
+    console.error('Error generating review submissions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate review submissions',
       error: error.message
     });
   }

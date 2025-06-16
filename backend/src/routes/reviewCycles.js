@@ -51,22 +51,6 @@ const updateReviewCycleValidation = [
 
 const idValidation = [param('id').isMongoId().withMessage('Invalid review cycle ID')];
 
-// @route   GET /api/v1/review-cycles
-// @desc    Get all review cycles with filtering
-// @access  Admin, HR, Manager
-router.get(
-  '/',
-  auth,
-  rbac(['admin', 'hr', 'manager']),
-  [
-    query('status').optional().isIn(['all', 'draft', 'active', 'grace-period', 'closed']),
-    query('type').optional().isIn(['all', 'quarterly', 'half-yearly', 'annual', 'custom']),
-    query('page').optional().isInt({ min: 1 }),
-    query('limit').optional().isInt({ min: 1, max: 100 })
-  ],
-  reviewCycleController.getReviewCycles
-);
-
 // @route   GET /api/v1/review-cycles/my-active
 // @desc    Get user's active review cycles
 // @access  All authenticated users
@@ -87,10 +71,21 @@ router.get(
   reviewCycleController.debugReviewCycles
 );
 
-// @route   GET /api/v1/review-cycles/:id
-// @desc    Get single review cycle
-// @access  Admin, HR, Manager, or participants
-router.get('/:id', auth, idValidation, reviewCycleController.getReviewCycle);
+// @route   GET /api/v1/review-cycles
+// @desc    Get all review cycles with filtering
+// @access  Admin, HR, Manager
+router.get(
+  '/',
+  auth,
+  rbac(['admin', 'hr', 'manager']),
+  [
+    query('status').optional().isIn(['all', 'draft', 'active', 'grace-period', 'closed']),
+    query('type').optional().isIn(['all', 'quarterly', 'half-yearly', 'annual', 'custom']),
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 100 })
+  ],
+  reviewCycleController.getReviewCycles
+);
 
 // @route   POST /api/v1/review-cycles
 // @desc    Create new review cycle
@@ -102,6 +97,69 @@ router.post(
   createReviewCycleValidation,
   reviewCycleController.createReviewCycle
 );
+
+// @route   POST /api/v1/review-cycles/:id/participants
+// @desc    Assign participants to review cycle
+// @access  Admin, HR
+router.post(
+  '/:id/participants',
+  auth,
+  rbac(['admin', 'hr']),
+  idValidation,
+  [
+    body('userIds')
+      .isArray({ min: 1 })
+      .withMessage('User IDs array is required')
+      .custom((userIds) => {
+        if (!userIds.every((id) => typeof id === 'string' && id.match(/^[0-9a-fA-F]{24}$/))) {
+          throw new Error('All user IDs must be valid MongoDB ObjectIds');
+        }
+        return true;
+      })
+  ],
+  reviewCycleController.assignParticipants
+);
+
+// @route   DELETE /api/v1/review-cycles/:id/participants/:userId
+// @desc    Remove participant from review cycle
+// @access  Admin, HR
+router.delete(
+  '/:id/participants/:userId',
+  auth,
+  rbac(['admin', 'hr']),
+  [
+    param('id').isMongoId().withMessage('Invalid review cycle ID'),
+    param('userId').isMongoId().withMessage('Invalid user ID')
+  ],
+  reviewCycleController.removeParticipant
+);
+
+// @route   GET /api/v1/review-cycles/:id/stats
+// @desc    Get review cycle statistics
+// @access  Admin, HR
+router.get(
+  '/:id/stats',
+  auth,
+  rbac(['admin', 'hr']),
+  idValidation,
+  reviewCycleController.getReviewCycleStats
+);
+
+// @route   POST /api/v1/review-cycles/:id/generate-submissions
+// @desc    Generate review submissions for active cycle
+// @access  Admin, HR
+router.post(
+  '/:id/generate-submissions',
+  auth,
+  rbac(['admin', 'hr']),
+  idValidation,
+  reviewCycleController.generateReviewSubmissions
+);
+
+// @route   GET /api/v1/review-cycles/:id
+// @desc    Get single review cycle
+// @access  Admin, HR, Manager, or participants
+router.get('/:id', auth, idValidation, reviewCycleController.getReviewCycle);
 
 // @route   PUT /api/v1/review-cycles/:id
 // @desc    Update review cycle (full update)
@@ -131,38 +189,5 @@ router.patch(
 // @desc    Delete review cycle (soft delete)
 // @access  Admin only
 router.delete('/:id', auth, rbac(['admin']), idValidation, reviewCycleController.deleteReviewCycle);
-
-// @route   POST /api/v1/review-cycles/:id/participants
-// @desc    Assign participants to review cycle
-// @access  Admin, HR
-router.post(
-  '/:id/participants',
-  auth,
-  rbac(['admin', 'hr']),
-  idValidation,
-  [
-    body('userIds')
-      .isArray({ min: 1 })
-      .withMessage('User IDs array is required')
-      .custom((userIds) => {
-        if (!userIds.every((id) => typeof id === 'string' && id.match(/^[0-9a-fA-F]{24}$/))) {
-          throw new Error('All user IDs must be valid MongoDB ObjectIds');
-        }
-        return true;
-      })
-  ],
-  reviewCycleController.assignParticipants
-);
-
-// @route   GET /api/v1/review-cycles/:id/stats
-// @desc    Get review cycle statistics
-// @access  Admin, HR
-router.get(
-  '/:id/stats',
-  auth,
-  rbac(['admin', 'hr']),
-  idValidation,
-  reviewCycleController.getReviewCycleStats
-);
 
 export default router;

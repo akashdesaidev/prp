@@ -43,6 +43,11 @@ export default function ReviewSubmissionPage() {
       console.log('Review submission response:', response.data);
       console.log('Review data structure:', reviewData);
       console.log('Review cycle data:', reviewData?.reviewCycleId);
+      console.log('Questions in cycle:', reviewData?.reviewCycleId?.questions?.length || 0);
+      console.log('AI suggestions:', {
+        hasAI: !!reviewData?.aiSuggestions,
+        commentsLength: reviewData?.aiSuggestions?.suggestedComments?.length || 0
+      });
 
       setReview(reviewData);
 
@@ -56,10 +61,22 @@ export default function ReviewSubmissionPage() {
 
       // Initialize form data with existing responses or empty structure
       if (reviewData.responses && reviewData.responses.length > 0) {
+        // Use existing responses, but ensure they match the questions structure
+        const formattedResponses = reviewData.responses.map((response) => ({
+          questionId: response.questionId,
+          questionText: response.questionText,
+          response: response.response || '',
+          rating:
+            response.rating ||
+            (questions.find((q) => (q._id || q.id) === response.questionId)?.requiresRating
+              ? 0
+              : null)
+        }));
+
         setFormData({
-          responses: reviewData.responses,
+          responses: formattedResponses,
           overallRating: reviewData.overallRating || 0,
-          comments: reviewData.comments || ''
+          comments: reviewData.comments || reviewData.aiSuggestions?.suggestedComments || ''
         });
       } else {
         // Initialize with empty responses based on questions
@@ -73,7 +90,7 @@ export default function ReviewSubmissionPage() {
         setFormData({
           responses: emptyResponses,
           overallRating: 0,
-          comments: ''
+          comments: reviewData.aiSuggestions?.suggestedComments || ''
         });
       }
     } catch (error) {

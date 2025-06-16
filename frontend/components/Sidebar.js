@@ -253,13 +253,13 @@ export default function Sidebar() {
   };
 
   // Prevent layout shift during hydration
-  const sidebarWidth = !isHydrated ? 'w-64' : isCollapsed ? 'w-16' : 'w-64';
+  const sidebarWidth = !isHydrated ? 'w-64' : isCollapsed ? 'min-w-24' : 'min-w-64';
 
   return (
     <>
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden top-0 overflow-y-auto md:max-h-screen md:block ${sidebarWidth} transition-all duration-300 border-r border-gray-200 bg-white dark:bg-gray-900 dark:border-gray-800 min-h-screen sticky`}
+        className={`hidden top-0  overflow-y-auto md:max-h-screen md:block ${sidebarWidth} min-w-16 transition-all duration-300 border-r border-gray-200 bg-white dark:bg-gray-900 dark:border-gray-800 min-h-screen sticky`}
       >
         {/* Collapse Toggle Button */}
         <div className="relative z-50">
