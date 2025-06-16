@@ -172,7 +172,13 @@ export const TimeTrackerProvider = ({ children }) => {
       clearTimeout(notificationRef.current);
     }
 
-    toast.info('Time tracking paused');
+    toast('Time tracking paused', {
+      icon: 'ℹ️',
+      style: {
+        background: '#3b82f6',
+        color: '#ffffff'
+      }
+    });
   };
 
   const stopTracking = () => {

@@ -90,6 +90,85 @@ export default function ReviewFormWizard({
   const [completedSteps, setCompletedSteps] = useState(new Set());
   const [validationErrors, setValidationErrors] = useState({});
 
+  // Move useEffect to the top to avoid conditional hook issues
+  useEffect(() => {
+    // This will be called after steps are created
+    const validateCurrentStep = () => {
+      const errors = {};
+      const currentStepData = steps[currentStep];
+
+      if (currentStepData && !currentStepData.isSummary && !currentStepData.isOverallAssessment) {
+        currentStepData.questions.forEach((question) => {
+          const questionId = question._id || question.id;
+          const response = formData.responses?.find((r) => r.questionId === questionId);
+          const questionType = getQuestionType(question);
+
+          if (question.required || question.isRequired) {
+            if (questionType === 'rating' && !response?.rating) {
+              errors[questionId] = 'Rating is required';
+            } else if (questionType === 'text' && !response?.response?.trim()) {
+              errors[questionId] = 'Response is required';
+            } else if (
+              questionType === 'rating_text' &&
+              !response?.rating &&
+              !response?.response?.trim()
+            ) {
+              errors[questionId] = 'Either rating or response is required';
+            }
+          }
+        });
+      }
+
+      setValidationErrors(errors);
+
+      // Update completed steps
+      if (Object.keys(errors).length === 0 && !currentStepData?.isSummary) {
+        setCompletedSteps((prev) => new Set([...prev, currentStep]));
+      } else if (!currentStepData?.isSummary && !currentStepData?.isOverallAssessment) {
+        setCompletedSteps((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(currentStep);
+          return newSet;
+        });
+      }
+
+      // For overall assessment step, mark as completed if user has provided some input
+      if (currentStepData?.isOverallAssessment) {
+        const hasOverallInput =
+          formData.overallRating > 0 || (formData.comments && formData.comments.trim().length > 0);
+        if (hasOverallInput) {
+          setCompletedSteps((prev) => new Set([...prev, currentStep]));
+        } else {
+          setCompletedSteps((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(currentStep);
+            return newSet;
+          });
+        }
+      }
+    };
+
+    // Helper to get the actual question type from either type field or requiresRating field
+    const getQuestionType = (question) => {
+      // If question has explicit type field, use it
+      if (question.type) {
+        return question.type;
+      }
+
+      // For ReviewCycle questions, infer type from requiresRating field
+      if (question.requiresRating !== undefined) {
+        return question.requiresRating ? 'rating_text' : 'text';
+      }
+
+      // Default fallback
+      return 'text';
+    };
+
+    if (steps.length > 0) {
+      validateCurrentStep();
+    }
+  }, [currentStep, formData, steps.length]);
+
   const questions = review?.reviewCycleId?.questions || [];
   // Dynamic questions per step based on total questions
   const questionsPerStep = questions.length <= 6 ? 1 : questions.length <= 12 ? 2 : 3;
@@ -191,7 +270,6 @@ export default function ReviewFormWizard({
     );
   }
 
-  // Safety check for current step
   if (currentStep >= steps.length) {
     console.error('Wizard View: Current step out of bounds!', {
       currentStep,
@@ -201,67 +279,6 @@ export default function ReviewFormWizard({
     return null;
   }
 
-  useEffect(() => {
-    if (steps.length > 0) {
-      validateCurrentStep();
-    }
-  }, [currentStep, formData, steps.length]);
-
-  const validateCurrentStep = () => {
-    const errors = {};
-    const currentStepData = steps[currentStep];
-
-    if (currentStepData && !currentStepData.isSummary && !currentStepData.isOverallAssessment) {
-      currentStepData.questions.forEach((question) => {
-        const questionId = question._id || question.id;
-        const response = formData.responses?.find((r) => r.questionId === questionId);
-        const questionType = getQuestionType(question);
-
-        if (question.required || question.isRequired) {
-          if (questionType === 'rating' && !response?.rating) {
-            errors[questionId] = 'Rating is required';
-          } else if (questionType === 'text' && !response?.response?.trim()) {
-            errors[questionId] = 'Response is required';
-          } else if (
-            questionType === 'rating_text' &&
-            !response?.rating &&
-            !response?.response?.trim()
-          ) {
-            errors[questionId] = 'Either rating or response is required';
-          }
-        }
-      });
-    }
-
-    setValidationErrors(errors);
-
-    // Update completed steps
-    if (Object.keys(errors).length === 0 && !currentStepData?.isSummary) {
-      setCompletedSteps((prev) => new Set([...prev, currentStep]));
-    } else if (!currentStepData?.isSummary && !currentStepData?.isOverallAssessment) {
-      setCompletedSteps((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(currentStep);
-        return newSet;
-      });
-    }
-
-    // For overall assessment step, mark as completed if user has provided some input
-    if (currentStepData?.isOverallAssessment) {
-      const hasOverallInput =
-        formData.overallRating > 0 || (formData.comments && formData.comments.trim().length > 0);
-      if (hasOverallInput) {
-        setCompletedSteps((prev) => new Set([...prev, currentStep]));
-      } else {
-        setCompletedSteps((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(currentStep);
-          return newSet;
-        });
-      }
-    }
-  };
-
   const getStepProgress = () => {
     // Exclude summary step from progress calculation (totalSteps - 1)
     // Include overall assessment step in progress calculation
@@ -269,22 +286,6 @@ export default function ReviewFormWizard({
     const progress = Math.round((completedSteps.size / progressSteps) * 100);
     // Cap progress at 100% to prevent over 100%
     return Math.min(progress, 100);
-  };
-
-  // Helper to get the actual question type from either type field or requiresRating field
-  const getQuestionType = (question) => {
-    // If question has explicit type field, use it
-    if (question.type) {
-      return question.type;
-    }
-
-    // For ReviewCycle questions, infer type from requiresRating field
-    if (question.requiresRating !== undefined) {
-      return question.requiresRating ? 'rating_text' : 'text';
-    }
-
-    // Default fallback
-    return 'text';
   };
 
   const getQuestionProgress = (step) => {

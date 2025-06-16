@@ -27,8 +27,45 @@ import TimeInsightsDashboard from '../../components/time/TimeInsightsDashboard';
 import SmartTimeOptimizer from '../../components/time/SmartTimeOptimizer';
 import TeamTimeCollaboration from '../../components/time/TeamTimeCollaboration';
 import AdvancedTimeReporting from '../../components/time/AdvancedTimeReporting';
+import EmployeeTimeTracker from '../../components/time/EmployeeTimeTracker';
+import ManagerTimeTracker from '../../components/time/ManagerTimeTracker';
 
 export default function TimeTrackingPage() {
+  const { user } = useAuth();
+
+  // Determine which time tracker to show based on user role
+  const renderRoleBasedTimeTracker = () => {
+    if (!user) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      );
+    }
+
+    // Admin and HR users get the full admin interface (existing functionality)
+    if (user.role === 'admin' || user.role === 'hr') {
+      return <AdminTimeTracker />;
+    }
+
+    // Managers get the manager interface with team oversight
+    if (user.role === 'manager') {
+      return <ManagerTimeTracker />;
+    }
+
+    // Employees get the simplified employee interface
+    return <EmployeeTimeTracker />;
+  };
+
+  return (
+    <ProtectedRoute>
+      <div className="container mx-auto px-4 py-8">{renderRoleBasedTimeTracker()}</div>
+    </ProtectedRoute>
+  );
+}
+
+// Admin Time Tracker Component (existing functionality)
+function AdminTimeTracker() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [timeEntries, setTimeEntries] = useState([]);
@@ -63,7 +100,7 @@ export default function TimeTrackingPage() {
 
       // Fetch recent time entries and OKRs
       const [entriesResponse, okrsResponse] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/time-entries?limit=10`, {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/time-entries?limit=10&populate=okrId`, {
           headers: { Authorization: `Bearer ${token}` }
         }),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/okrs`, {
@@ -289,7 +326,7 @@ export default function TimeTrackingPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h4 className="font-medium text-gray-900">
-                          {entry.okrId?.title || 'Unknown OKR'}
+                          {entry.okrId?.title || entry.okrTitle || 'General Time Entry'}
                         </h4>
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(entry.category)}`}

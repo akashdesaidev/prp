@@ -129,7 +129,13 @@ export default function TimeTrackingDashboard() {
   const pauseTimer = () => {
     if (activeTimer) {
       localStorage.removeItem('activeTimeTracker');
-      toast.info('Timer paused');
+      toast('Timer paused', {
+        icon: 'ℹ️',
+        style: {
+          background: '#3b82f6',
+          color: '#ffffff'
+        }
+      });
     }
   };
 

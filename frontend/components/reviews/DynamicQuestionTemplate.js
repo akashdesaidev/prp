@@ -233,6 +233,9 @@ export default function DynamicQuestionTemplate({
     }
   );
 
+  // Add display name for ESLint
+  TextAreaComponent.displayName = 'TextAreaComponent';
+
   const MultipleChoiceComponent = ({
     options,
     value,
