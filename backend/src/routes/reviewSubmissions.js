@@ -90,6 +90,17 @@ router.put(
   reviewSubmissionController.updateReviewSubmission
 );
 
+// @route   PATCH /api/v1/review-submissions/:id
+// @desc    Update review submission (partial update)
+// @access  Submission owner only
+router.patch(
+  '/:id',
+  auth,
+  idValidation,
+  updateSubmissionValidation,
+  reviewSubmissionController.updateReviewSubmission
+);
+
 // @route   POST /api/v1/review-submissions/:id/submit
 // @desc    Submit review
 // @access  Submission owner only

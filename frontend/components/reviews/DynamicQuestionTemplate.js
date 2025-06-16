@@ -378,7 +378,7 @@ export default function DynamicQuestionTemplate({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between">
             <h3 className="font-medium text-gray-900 pr-4">
-              {question.text}
+              {question.text || question.question || question.questionText || 'Question'}
               {question.required && <span className="text-red-500 ml-1">*</span>}
             </h3>
 

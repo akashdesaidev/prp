@@ -89,7 +89,7 @@ export default function ReviewForm({
     />
   );
 
-  const QuestionCard = ({ question, response }) => {
+  const QuestionCard = ({ question, response, onResponseChange, readOnly = false }) => {
     const questionId = question._id || question.id;
     const isExpanded = expandedQuestions[questionId];
     const questionType = getQuestionType(question);
@@ -239,17 +239,7 @@ export default function ReviewForm({
     return totalQuestions > 0 ? Math.round((completedQuestions / totalQuestions) * 100) : 0;
   };
 
-  // Debug logging
-  console.log('ReviewForm Debug:', {
-    review: !!review,
-    reviewCycleId: !!review?.reviewCycleId,
-    questions: review?.reviewCycleId?.questions?.length || 0,
-    questionsArray: review?.reviewCycleId?.questions,
-    formDataResponses: formData?.responses?.length || 0
-  });
-
   if (!review?.reviewCycleId?.questions) {
-    console.log('No questions found - showing fallback message');
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
         <MessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
@@ -339,11 +329,23 @@ export default function ReviewForm({
           const questionId = question._id || question.id;
           const response = formData.responses?.find((r) => r.questionId === questionId);
 
+          console.log('Basic View Question Debug:', {
+            questionIndex: index,
+            questionId,
+            questionText: question.text || question.question || question.questionText,
+            response,
+            hasResponse: !!response,
+            responseText: response?.response,
+            responseRating: response?.rating
+          });
+
           return (
             <QuestionCard
               key={questionId}
               question={{ ...question, index: index + 1 }}
               response={response}
+              onResponseChange={onResponseChange}
+              readOnly={readOnly}
             />
           );
         })}

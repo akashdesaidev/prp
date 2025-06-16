@@ -10,7 +10,8 @@ import {
   Save,
   Send,
   FileText,
-  Clock
+  Clock,
+  Star
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
@@ -34,53 +35,51 @@ export default function ReviewFormWizard({
   const [validationErrors, setValidationErrors] = useState({});
 
   const questions = review?.reviewCycleId?.questions || [];
-  const questionsPerStep = 5; // Increased from 3 to 5 questions per step
-  const totalSteps = Math.ceil(questions.length / questionsPerStep) + 1; // +1 for summary step
+  // Dynamic questions per step based on total questions
+  const questionsPerStep = questions.length <= 6 ? 1 : questions.length <= 12 ? 2 : 3;
+  const totalSteps = Math.ceil(questions.length / questionsPerStep) + 2; // +2 for overall assessment and summary steps
 
-  // Create steps from questions - group by category if possible, otherwise by count
+  // Create steps from questions - always group by count for consistency
   const steps = [];
 
-  // If we have 3 or fewer questions, put them all in one step
-  if (questions.length <= 3) {
-    steps.push({
-      id: 0,
-      title: 'Questions',
-      description: `All ${questions.length} questions`,
-      questions: questions
-    });
+  if (questions.length === 0) {
+    // No questions, just add overall assessment and summary
+    console.log('No questions found, skipping question steps');
   } else {
-    // Group questions by category first, then by count
-    const questionsByCategory = questions.reduce((acc, question) => {
-      const category = question.category || 'general';
-      if (!acc[category]) acc[category] = [];
-      acc[category].push(question);
-      return acc;
-    }, {});
+    // Always group by count for predictable behavior
+    console.log('Creating question steps:', {
+      totalQuestions: questions.length,
+      questionsPerStep,
+      expectedStepCount: Math.ceil(questions.length / questionsPerStep)
+    });
 
-    const categories = Object.keys(questionsByCategory);
+    for (let i = 0; i < questions.length; i += questionsPerStep) {
+      const stepQuestions = questions.slice(i, i + questionsPerStep);
+      const stepNumber = Math.floor(i / questionsPerStep) + 1;
 
-    if (categories.length <= 3 && questions.length <= 10) {
-      // If we have few categories and questions, group by category
-      categories.forEach((category, index) => {
-        steps.push({
-          id: index,
-          title: `${category.charAt(0).toUpperCase() + category.slice(1)} Questions`,
-          description: `${questionsByCategory[category].length} questions about ${category}`,
-          questions: questionsByCategory[category]
-        });
+      steps.push({
+        id: Math.floor(i / questionsPerStep),
+        title: `Section ${stepNumber}`,
+        description: `Questions ${i + 1}-${Math.min(i + questionsPerStep, questions.length)} of ${questions.length}`,
+        questions: stepQuestions
       });
-    } else {
-      // Default: group by count
-      for (let i = 0; i < questions.length; i += questionsPerStep) {
-        steps.push({
-          id: Math.floor(i / questionsPerStep),
-          title: `Section ${Math.floor(i / questionsPerStep) + 1}`,
-          description: `Questions ${i + 1}-${Math.min(i + questionsPerStep, questions.length)}`,
-          questions: questions.slice(i, i + questionsPerStep)
-        });
-      }
+
+      console.log(`Created step ${stepNumber}:`, {
+        stepId: Math.floor(i / questionsPerStep),
+        questionsInStep: stepQuestions.length,
+        questionRange: `${i + 1}-${Math.min(i + questionsPerStep, questions.length)}`
+      });
     }
   }
+
+  // Add overall assessment step
+  steps.push({
+    id: steps.length,
+    title: 'Overall Assessment',
+    description: 'Provide your overall rating and comments',
+    questions: [],
+    isOverallAssessment: true
+  });
 
   // Add summary step
   steps.push({
@@ -91,15 +90,72 @@ export default function ReviewFormWizard({
     isSummary: true
   });
 
+  // Debug steps creation
+  console.log('Wizard Steps Debug:', {
+    questionsLength: questions.length,
+    questionsPerStep,
+    totalSteps,
+    stepsCount: steps.length,
+    steps: steps.map((s, index) => ({
+      stepIndex: index,
+      id: s.id,
+      title: s.title,
+      questionsCount: s.questions?.length || 0,
+      questionIds: s.questions?.map((q) => q._id || q.id) || [],
+      isOverallAssessment: s.isOverallAssessment,
+      isSummary: s.isSummary
+    })),
+    currentStep,
+    currentStepData: steps[currentStep]
+      ? {
+          title: steps[currentStep].title,
+          questionsCount: steps[currentStep].questions?.length || 0,
+          isOverallAssessment: steps[currentStep].isOverallAssessment,
+          isSummary: steps[currentStep].isSummary
+        }
+      : null,
+    allQuestions: questions.map((q, i) => ({
+      index: i,
+      id: q._id || q.id,
+      text: q.text?.substring(0, 50)
+    }))
+  });
+
+  // Safety check for steps
+  if (steps.length === 0) {
+    console.error('Wizard View: No steps created!');
+    return (
+      <div className="max-w-4xl mx-auto p-6 text-center">
+        <AlertCircle className="mx-auto h-12 w-12 text-red-400 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No questions available</h3>
+        <p className="text-gray-500">
+          This review cycle doesn't have any questions configured for the wizard view.
+        </p>
+      </div>
+    );
+  }
+
+  // Safety check for current step
+  if (currentStep >= steps.length) {
+    console.error('Wizard View: Current step out of bounds!', {
+      currentStep,
+      stepsLength: steps.length
+    });
+    setCurrentStep(0);
+    return null;
+  }
+
   useEffect(() => {
-    validateCurrentStep();
-  }, [currentStep, formData]);
+    if (steps.length > 0) {
+      validateCurrentStep();
+    }
+  }, [currentStep, formData, steps.length]);
 
   const validateCurrentStep = () => {
     const errors = {};
     const currentStepData = steps[currentStep];
 
-    if (currentStepData && !currentStepData.isSummary) {
+    if (currentStepData && !currentStepData.isSummary && !currentStepData.isOverallAssessment) {
       currentStepData.questions.forEach((question) => {
         const questionId = question._id || question.id;
         const response = formData.responses?.find((r) => r.questionId === questionId);
@@ -126,17 +182,37 @@ export default function ReviewFormWizard({
     // Update completed steps
     if (Object.keys(errors).length === 0 && !currentStepData?.isSummary) {
       setCompletedSteps((prev) => new Set([...prev, currentStep]));
-    } else {
+    } else if (!currentStepData?.isSummary && !currentStepData?.isOverallAssessment) {
       setCompletedSteps((prev) => {
         const newSet = new Set(prev);
         newSet.delete(currentStep);
         return newSet;
       });
     }
+
+    // For overall assessment step, mark as completed if user has provided some input
+    if (currentStepData?.isOverallAssessment) {
+      const hasOverallInput =
+        formData.overallRating > 0 || (formData.comments && formData.comments.trim().length > 0);
+      if (hasOverallInput) {
+        setCompletedSteps((prev) => new Set([...prev, currentStep]));
+      } else {
+        setCompletedSteps((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(currentStep);
+          return newSet;
+        });
+      }
+    }
   };
 
   const getStepProgress = () => {
-    return Math.round((completedSteps.size / (totalSteps - 1)) * 100);
+    // Exclude summary step from progress calculation (totalSteps - 1)
+    // Include overall assessment step in progress calculation
+    const progressSteps = totalSteps - 1; // Only exclude summary step
+    const progress = Math.round((completedSteps.size / progressSteps) * 100);
+    // Cap progress at 100% to prevent over 100%
+    return Math.min(progress, 100);
   };
 
   // Helper to get the actual question type from either type field or requiresRating field
@@ -174,14 +250,55 @@ export default function ReviewFormWizard({
 
   const canProceedToNext = () => {
     const currentStepData = steps[currentStep];
-    if (currentStepData?.isSummary) return false;
 
-    return Object.keys(validationErrors).length === 0;
+    // Cannot proceed past summary step
+    if (currentStepData?.isSummary) {
+      console.log('Cannot proceed: Already at summary step');
+      return false;
+    }
+
+    // For overall assessment step, always allow proceeding to summary step
+    if (currentStepData?.isOverallAssessment) {
+      const canProceedFromOverall = currentStep < steps.length - 1;
+      console.log('Overall assessment step - can proceed:', canProceedFromOverall);
+      return canProceedFromOverall;
+    }
+
+    // For regular question steps, allow navigation if readOnly (review mode)
+    // or check validation errors if in edit mode
+    if (readOnly) {
+      console.log('Read-only mode - allowing navigation');
+      return true;
+    }
+
+    const canProceed = Object.keys(validationErrors).length === 0;
+    console.log('Edit mode - can proceed:', canProceed, 'errors:', validationErrors);
+    return canProceed;
   };
 
   const handleNext = () => {
-    if (currentStep < totalSteps - 1 && canProceedToNext()) {
+    const canProceed = canProceedToNext();
+    const isLastStep = currentStep >= totalSteps - 1;
+
+    console.log('HandleNext debug:', {
+      currentStep,
+      totalSteps,
+      stepsLength: steps.length,
+      canProceed,
+      isLastStep,
+      currentStepData: steps[currentStep]
+        ? {
+            title: steps[currentStep].title,
+            isOverallAssessment: steps[currentStep].isOverallAssessment,
+            isSummary: steps[currentStep].isSummary
+          }
+        : null
+    });
+
+    if (!isLastStep && canProceed) {
       setCurrentStep(currentStep + 1);
+    } else {
+      console.log('Cannot proceed to next step:', { isLastStep, canProceed });
     }
   };
 
@@ -193,7 +310,29 @@ export default function ReviewFormWizard({
 
   const handleStepClick = (stepIndex) => {
     // Allow navigation to completed steps or current step
-    if (stepIndex <= currentStep || completedSteps.has(stepIndex)) {
+    // Also allow navigation to overall assessment and summary steps for testing
+    const targetStep = steps[stepIndex];
+    const canNavigate =
+      stepIndex <= currentStep ||
+      completedSteps.has(stepIndex) ||
+      targetStep?.isOverallAssessment ||
+      targetStep?.isSummary;
+
+    console.log('Step click debug:', {
+      stepIndex,
+      currentStep,
+      targetStep: targetStep
+        ? {
+            title: targetStep.title,
+            isOverallAssessment: targetStep.isOverallAssessment,
+            isSummary: targetStep.isSummary
+          }
+        : null,
+      canNavigate,
+      completedSteps: Array.from(completedSteps)
+    });
+
+    if (canNavigate) {
       setCurrentStep(stepIndex);
     }
   };
@@ -223,6 +362,209 @@ export default function ReviewFormWizard({
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const RatingComponent = ({ value, onChange, readOnly = false, size = 'default' }) => {
+    const [hoverRating, setHoverRating] = useState(0);
+
+    const starSize = size === 'large' ? 'w-8 h-8' : 'w-6 h-6';
+
+    return (
+      <div className="flex items-center space-x-1">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => (
+          <button
+            key={rating}
+            type="button"
+            disabled={readOnly}
+            className={`${starSize} transition-colors ${
+              readOnly ? 'cursor-default' : 'cursor-pointer hover:scale-110'
+            }`}
+            onMouseEnter={() => !readOnly && setHoverRating(rating)}
+            onMouseLeave={() => !readOnly && setHoverRating(0)}
+            onClick={() => !readOnly && onChange(rating)}
+          >
+            <Star
+              className={`w-full h-full ${
+                rating <= (hoverRating || value) ? 'text-yellow-400 fill-current' : 'text-gray-300'
+              }`}
+            />
+          </button>
+        ))}
+        <span className="ml-2 text-sm text-gray-600 font-medium">
+          {value || hoverRating || 0}/10
+        </span>
+      </div>
+    );
+  };
+
+  const TextAreaComponent = ({ value, onChange, placeholder, rows = 4, readOnly = false }) => (
+    <textarea
+      value={value}
+      onChange={(e) => !readOnly && onChange(e.target.value)}
+      placeholder={readOnly ? '' : placeholder}
+      rows={rows}
+      readOnly={readOnly}
+      className={`w-full border border-gray-300 rounded-md px-3 py-2 text-sm resize-vertical ${
+        readOnly
+          ? 'bg-gray-50 text-gray-700 cursor-default'
+          : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+      }`}
+    />
+  );
+
+  const OverallAssessmentStep = () => {
+    const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
+    const handleGenerateOverallAI = async () => {
+      if (isGeneratingAI) return;
+
+      setIsGeneratingAI(true);
+      try {
+        // Calculate suggested rating based on individual question responses
+        const responses = formData.responses || [];
+        const ratingsFromResponses = responses
+          .map((r) => r.rating)
+          .filter((rating) => rating && rating > 0);
+
+        let suggestedRating = 0;
+        if (ratingsFromResponses.length > 0) {
+          suggestedRating = Math.round(
+            ratingsFromResponses.reduce((sum, rating) => sum + rating, 0) /
+              ratingsFromResponses.length
+          );
+        } else {
+          // Default to middle rating if no individual ratings
+          suggestedRating = 6;
+        }
+
+        // Generate AI comment based on responses
+        const responseTexts = responses
+          .map((r) => r.response)
+          .filter((text) => text && text.trim().length > 0)
+          .join(' ');
+
+        let aiComment = '';
+        if (responseTexts.length > 50) {
+          // Simple AI-like summary (in real app, this would call AI service)
+          aiComment = `Based on the detailed responses provided, this ${getReviewTypeLabel(review.reviewType).toLowerCase()} demonstrates solid performance across key areas. The feedback indicates consistent effort and achievement of objectives with room for continued growth and development.`;
+        } else {
+          aiComment = `This ${getReviewTypeLabel(review.reviewType).toLowerCase()} shows positive performance indicators. Continued focus on key objectives and professional development will support ongoing success.`;
+        }
+
+        // Apply the AI suggestions
+        onOverallChange('overallRating', suggestedRating);
+        onOverallChange('comments', aiComment);
+
+        toast.success('AI suggestions applied to overall assessment');
+      } catch (error) {
+        console.error('Error generating AI suggestions:', error);
+        toast.error('Failed to generate AI suggestions');
+      } finally {
+        setIsGeneratingAI(false);
+      }
+    };
+
+    // Check if we can proceed to next step (summary step)
+    const canProceedToSummary = () => {
+      return currentStep < steps.length - 1;
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <FileText className="mx-auto h-16 w-16 text-blue-500 mb-4" />
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">Overall Assessment</h3>
+          <p className="text-gray-600">
+            Provide your overall rating and any additional comments for this{' '}
+            {getReviewTypeLabel(review.reviewType).toLowerCase()}.
+          </p>
+        </div>
+
+        {/* AI Suggestion Button */}
+        {!readOnly && (
+          <div className="text-center">
+            <Button
+              variant="outline"
+              onClick={handleGenerateOverallAI}
+              disabled={isGeneratingAI}
+              className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 hover:from-purple-100 hover:to-blue-100"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
+              </svg>
+              {isGeneratingAI ? 'Generating AI Suggestions...' : 'Generate AI Overall Assessment'}
+            </Button>
+          </div>
+        )}
+
+        {/* Overall Assessment Form */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <h4 className="text-lg font-medium text-gray-900 mb-6">Overall Assessment</h4>
+
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Overall Rating (1-10 scale)
+              </label>
+              <RatingComponent
+                value={formData.overallRating || 0}
+                onChange={(rating) => onOverallChange('overallRating', rating)}
+                readOnly={readOnly}
+                size="large"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Rate the overall performance based on all aspects covered in this review.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Additional Comments (Optional)
+              </label>
+              <TextAreaComponent
+                value={formData.comments || ''}
+                onChange={(text) => onOverallChange('comments', text)}
+                placeholder="Any additional feedback, observations, or comments..."
+                rows={6}
+                readOnly={readOnly}
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Provide any additional context, specific examples, or overall feedback.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation Buttons */}
+        <div className="flex justify-between pt-4">
+          <Button variant="outline" onClick={handlePrevious}>
+            <ChevronLeft className="w-4 h-4 mr-2" />
+            Previous
+          </Button>
+
+          <div className="flex space-x-3">
+            <Button
+              variant="outline"
+              onClick={onSaveDraft}
+              disabled={saving || submitting || readOnly}
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {saving ? 'Saving...' : 'Save Draft'}
+            </Button>
+
+            <Button onClick={handleNext} disabled={!canProceedToSummary()}>
+              Next
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const SummaryStep = () => {
@@ -297,11 +639,11 @@ export default function ReviewFormWizard({
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Review Cycle:</span>
-              <span className="font-medium">{review.reviewCycle?.name}</span>
+              <span className="font-medium">{review.reviewCycleId?.name}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Due Date:</span>
-              <span className="font-medium">{formatDate(review.reviewCycle?.endDate)}</span>
+              <span className="font-medium">{formatDate(review.reviewCycleId?.endDate)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Status:</span>
@@ -314,19 +656,30 @@ export default function ReviewFormWizard({
 
         {/* Action Buttons */}
         <div className="flex justify-between pt-4">
-          <Button variant="outline" onClick={onSaveDraft} disabled={saving || submitting}>
-            <Save className="w-4 h-4 mr-2" />
-            {saving ? 'Saving...' : 'Save Draft'}
+          <Button variant="outline" onClick={handlePrevious}>
+            <ChevronLeft className="w-4 h-4 mr-2" />
+            Previous
           </Button>
 
-          <Button
-            onClick={onSubmit}
-            disabled={!canSubmit || saving || submitting}
-            className="bg-green-600 hover:bg-green-700"
-          >
-            <Send className="w-4 h-4 mr-2" />
-            {submitting ? 'Submitting...' : 'Submit Review'}
-          </Button>
+          <div className="flex space-x-3">
+            <Button
+              variant="outline"
+              onClick={onSaveDraft}
+              disabled={saving || submitting || readOnly}
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {saving ? 'Saving...' : 'Save Draft'}
+            </Button>
+
+            <Button
+              onClick={onSubmit}
+              disabled={!canSubmit || saving || submitting || readOnly}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Send className="w-4 h-4 mr-2" />
+              {submitting ? 'Submitting...' : 'Submit Review'}
+            </Button>
+          </div>
         </div>
 
         {!canSubmit && (
@@ -356,7 +709,7 @@ export default function ReviewFormWizard({
               {getReviewTypeLabel(review?.reviewType)}
             </h1>
             <p className="text-gray-600 mt-1">
-              {review?.reviewCycle?.name} • Due {formatDate(review?.reviewCycle?.endDate)}
+              {review?.reviewCycleId?.name} • Due {formatDate(review?.reviewCycleId?.endDate)}
             </p>
           </div>
 
@@ -376,7 +729,7 @@ export default function ReviewFormWizard({
             <div key={step.id} className="flex items-center">
               <button
                 onClick={() => handleStepClick(index)}
-                disabled={readOnly || (index > currentStep && !completedSteps.has(index))}
+                disabled={index > currentStep && !completedSteps.has(index)}
                 className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors ${
                   index === currentStep
                     ? 'border-blue-500 bg-blue-500 text-white'
@@ -417,6 +770,8 @@ export default function ReviewFormWizard({
       <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         {steps[currentStep]?.isSummary ? (
           <SummaryStep />
+        ) : steps[currentStep]?.isOverallAssessment ? (
+          <OverallAssessmentStep />
         ) : (
           <div className="space-y-6">
             {/* Step Progress */}
@@ -458,14 +813,10 @@ export default function ReviewFormWizard({
         )}
       </div>
 
-      {/* Navigation */}
-      {!steps[currentStep]?.isSummary && (
+      {/* Navigation - Only show for regular question steps, not for overall assessment or summary */}
+      {!steps[currentStep]?.isSummary && !steps[currentStep]?.isOverallAssessment && (
         <div className="flex justify-between items-center">
-          <Button
-            variant="outline"
-            onClick={handlePrevious}
-            disabled={currentStep === 0 || readOnly}
-          >
+          <Button variant="outline" onClick={handlePrevious} disabled={currentStep === 0}>
             <ChevronLeft className="w-4 h-4 mr-2" />
             Previous
           </Button>
@@ -480,7 +831,7 @@ export default function ReviewFormWizard({
               {saving ? 'Saving...' : 'Save Draft'}
             </Button>
 
-            <Button onClick={handleNext} disabled={!canProceedToNext() || readOnly}>
+            <Button onClick={handleNext} disabled={!canProceedToNext()}>
               Next
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>

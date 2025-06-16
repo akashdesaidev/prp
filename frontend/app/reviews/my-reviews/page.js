@@ -32,6 +32,18 @@ export default function MyReviewsPage() {
     fetchActiveCycles();
   }, []);
 
+  // Add effect to refresh data when page becomes visible (e.g., returning from submission)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchMyReviews();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   const fetchMyReviews = async () => {
     try {
       setLoading(true);
@@ -68,7 +80,7 @@ export default function MyReviewsPage() {
   };
 
   const getStatusBadge = (review) => {
-    if (review.submittedAt) {
+    if (review.status === 'submitted' || review.submittedAt) {
       return (
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
           <CheckCircle className="w-3 h-3 mr-1" />
@@ -123,8 +135,8 @@ export default function MyReviewsPage() {
 
   const filteredReviews = reviews.filter((review) => {
     if (filter === 'all') return true;
-    if (filter === 'pending') return !review.submittedAt;
-    if (filter === 'submitted') return review.submittedAt;
+    if (filter === 'pending') return !(review.status === 'submitted' || review.submittedAt);
+    if (filter === 'submitted') return review.status === 'submitted' || review.submittedAt;
     return true;
   });
 
@@ -168,7 +180,7 @@ export default function MyReviewsPage() {
           </div>
 
           <div className="flex items-center space-x-2">
-            {review.submittedAt ? (
+            {review.status === 'submitted' || review.submittedAt ? (
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/reviews/submit/${review._id}`}>View Review</Link>
               </Button>

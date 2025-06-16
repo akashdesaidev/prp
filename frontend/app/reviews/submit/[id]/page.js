@@ -66,11 +66,7 @@ export default function ReviewSubmissionPage() {
           questionId: response.questionId,
           questionText: response.questionText,
           response: response.response || '',
-          rating:
-            response.rating ||
-            (questions.find((q) => (q._id || q.id) === response.questionId)?.requiresRating
-              ? 0
-              : null)
+          rating: response.rating || null
         }));
 
         setFormData({
@@ -189,12 +185,13 @@ export default function ReviewSubmissionPage() {
 
     try {
       setSubmitting(true);
+
+      // First save the current data as draft
       const cleanedData = prepareFormData(formData);
-      await api.patch(`/review-submissions/${id}`, {
-        ...cleanedData,
-        status: 'submitted',
-        submittedAt: new Date().toISOString()
-      });
+      await api.patch(`/review-submissions/${id}`, cleanedData);
+
+      // Then submit the review using the dedicated submit endpoint
+      await api.post(`/review-submissions/${id}/submit`);
 
       toast.success('Review submitted successfully');
       router.push('/reviews/my-reviews');
@@ -262,7 +259,7 @@ export default function ReviewSubmissionPage() {
     );
   }
 
-  const isSubmitted = review.submittedAt;
+  const isSubmitted = review.status === 'submitted' || review.submittedAt;
   // Safe access to nested properties
   const reviewCycle = review?.reviewCycleId || {};
   const dueDate = new Date(reviewCycle?.endDate || new Date());
