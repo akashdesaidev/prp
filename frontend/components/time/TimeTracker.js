@@ -1,64 +1,44 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Square, Clock, Target, Save, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Play, Pause, Square, Clock, Target } from 'lucide-react';
 import { Button } from '../ui/button';
+import { useTimeTracker } from '../../context/TimeTrackerContext';
 import api from '../../lib/api';
-import toast from 'react-hot-toast';
 
 export default function TimeTracker({ onTimeLogged }) {
-  const [isTracking, setIsTracking] = useState(false);
-  const [startTime, setStartTime] = useState(null);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [selectedOkr, setSelectedOkr] = useState(null);
-  const [selectedKeyResult, setSelectedKeyResult] = useState(null);
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('direct_work');
-  const [okrs, setOkrs] = useState([]);
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const {
+    isTracking,
+    elapsedTime,
+    selectedOkr: globalSelectedOkr,
+    selectedKeyResult: globalSelectedKeyResult,
+    description: globalDescription,
+    category: globalCategory,
+    startTracking,
+    pauseTracking,
+    stopTracking,
+    formatTime,
+    getTimerColor
+  } = useTimeTracker();
 
-  const intervalRef = useRef(null);
-  const notificationRef = useRef(null);
+  const [selectedOkr, setSelectedOkr] = useState(globalSelectedOkr);
+  const [selectedKeyResult, setSelectedKeyResult] = useState(globalSelectedKeyResult);
+  const [description, setDescription] = useState(globalDescription || '');
+  const [category, setCategory] = useState(globalCategory || 'direct_work');
+  const [okrs, setOkrs] = useState([]);
 
   useEffect(() => {
     fetchOKRs();
-
-    // Check for existing tracking session in localStorage
-    const savedSession = localStorage.getItem('timeTrackingSession');
-    if (savedSession) {
-      const session = JSON.parse(savedSession);
-      setIsTracking(true);
-      setStartTime(new Date(session.startTime));
-      setSelectedOkr(session.selectedOkr);
-      setSelectedKeyResult(session.selectedKeyResult);
-      setDescription(session.description);
-      setCategory(session.category);
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
   }, []);
 
+  // Sync local state with global state when tracking starts
   useEffect(() => {
-    if (isTracking && startTime) {
-      intervalRef.current = setInterval(() => {
-        setElapsedTime(Date.now() - startTime.getTime());
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+    if (isTracking && globalSelectedOkr) {
+      setSelectedOkr(globalSelectedOkr);
+      setSelectedKeyResult(globalSelectedKeyResult);
+      setDescription(globalDescription || '');
+      setCategory(globalCategory || 'direct_work');
     }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isTracking, startTime]);
+  }, [isTracking, globalSelectedOkr, globalSelectedKeyResult, globalDescription, globalCategory]);
 
   const fetchOKRs = async () => {
     try {
@@ -69,118 +49,25 @@ export default function TimeTracker({ onTimeLogged }) {
     }
   };
 
-  const startTracking = () => {
-    if (!selectedOkr) {
-      toast.error('Please select an OKR to track time against');
-      return;
-    }
-
-    const now = new Date();
-    setStartTime(now);
-    setIsTracking(true);
-    setElapsedTime(0);
-
-    // Save session to localStorage
-    const session = {
-      startTime: now.toISOString(),
-      selectedOkr,
-      selectedKeyResult,
-      description,
-      category
-    };
-    localStorage.setItem('timeTrackingSession', JSON.stringify(session));
-
-    // Request notification permission
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-
-    toast.success('Time tracking started!');
-  };
-
-  const pauseTracking = () => {
-    setIsTracking(false);
-    localStorage.removeItem('timeTrackingSession');
-
-    if (notificationRef.current) {
-      clearTimeout(notificationRef.current);
+  const handleStartTracking = () => {
+    const success = startTracking(selectedOkr, selectedKeyResult, description, category);
+    if (success && onTimeLogged) {
+      onTimeLogged();
     }
   };
 
-  const stopTracking = () => {
-    if (elapsedTime < 60000) {
-      // Less than 1 minute
-      toast.error('Minimum tracking time is 1 minute');
-      return;
-    }
-
-    setIsTracking(false);
-    setShowSaveDialog(true);
-    localStorage.removeItem('timeTrackingSession');
-  };
-
-  const saveTimeEntry = async () => {
-    try {
-      setLoading(true);
-
-      const hours = elapsedTime / (1000 * 60 * 60); // Convert to hours
-
-      const payload = {
-        okrId: selectedOkr._id,
-        keyResultId: selectedKeyResult?._id,
-        date: new Date().toISOString().split('T')[0],
-        hoursSpent: Math.round(hours * 100) / 100, // Round to 2 decimal places
-        description: description || `${category.replace('_', ' ')} work on ${selectedOkr.title}`,
-        category
-      };
-
-      await api.post('/time-entries', payload);
-
-      toast.success(`Time entry saved: ${formatTime(elapsedTime)}`);
-
-      // Reset tracker
-      resetTracker();
-
-      // Notify parent component
-      if (onTimeLogged) {
-        onTimeLogged();
-      }
-    } catch (error) {
-      console.error('Error saving time entry:', error);
-      toast.error('Failed to save time entry');
-    } finally {
-      setLoading(false);
-      setShowSaveDialog(false);
+  const handlePauseTracking = () => {
+    pauseTracking();
+    if (onTimeLogged) {
+      onTimeLogged();
     }
   };
 
-  const resetTracker = () => {
-    setStartTime(null);
-    setElapsedTime(0);
-    setSelectedOkr(null);
-    setSelectedKeyResult(null);
-    setDescription('');
-    setCategory('direct_work');
-    setShowSaveDialog(false);
-  };
-
-  const formatTime = (milliseconds) => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  const handleStopTracking = () => {
+    const success = stopTracking();
+    if (success && onTimeLogged) {
+      onTimeLogged();
     }
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const getTimerColor = () => {
-    if (!isTracking) return 'text-gray-600';
-    if (elapsedTime > 4 * 60 * 60 * 1000) return 'text-red-600'; // Over 4 hours
-    if (elapsedTime > 2 * 60 * 60 * 1000) return 'text-orange-600'; // Over 2 hours
-    return 'text-green-600';
   };
 
   const getCategoryColor = (cat) => {
@@ -303,7 +190,7 @@ export default function TimeTracker({ onTimeLogged }) {
       <div className="flex items-center gap-3">
         {!isTracking ? (
           <Button
-            onClick={startTracking}
+            onClick={handleStartTracking}
             disabled={!selectedOkr}
             className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
           >
@@ -312,12 +199,16 @@ export default function TimeTracker({ onTimeLogged }) {
           </Button>
         ) : (
           <>
-            <Button onClick={pauseTracking} variant="outline" className="flex items-center gap-2">
+            <Button
+              onClick={handlePauseTracking}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
               <Pause className="h-4 w-4" />
               Pause
             </Button>
             <Button
-              onClick={stopTracking}
+              onClick={handleStopTracking}
               className="flex items-center gap-2 bg-red-600 hover:bg-red-700"
             >
               <Square className="h-4 w-4" />
@@ -326,74 +217,6 @@ export default function TimeTracker({ onTimeLogged }) {
           </>
         )}
       </div>
-
-      {/* Save Dialog */}
-      {showSaveDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Save Time Entry</h3>
-
-            <div className="space-y-4 mb-6">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Time Tracked:</span>
-                  <span className="font-semibold text-lg">{formatTime(elapsedTime)}</span>
-                </div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">OKR:</span>
-                  <span className="text-sm font-medium">{selectedOkr?.title}</span>
-                </div>
-                {selectedKeyResult && (
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-600">Key Result:</span>
-                    <span className="text-sm font-medium">{selectedKeyResult.title}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Category:</span>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(category)}`}
-                  >
-                    {category.replace('_', ' ')}
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Final Description
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe what you accomplished..."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={saveTimeEntry}
-                disabled={loading}
-                className="flex-1 flex items-center justify-center gap-2"
-              >
-                <Save className="h-4 w-4" />
-                {loading ? 'Saving...' : 'Save Entry'}
-              </Button>
-              <Button
-                onClick={() => setShowSaveDialog(false)}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <X className="h-4 w-4" />
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

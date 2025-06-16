@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Menu, User, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { Menu, User, Settings, LogOut, ChevronDown, Clock } from 'lucide-react';
 import Link from 'next/link';
 import NotificationBell from './notifications/NotificationBell';
 import { useMobileMenu } from './Sidebar';
 import { useAuth } from '../context/AuthContext';
+import { useTimeTracker } from '../context/TimeTrackerContext';
 
 export default function Header() {
   const { user, logout } = useAuth();
+  const { isTracking, elapsedTime, formatTime, getTimerColor } = useTimeTracker();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Get mobile menu context with proper error handling
@@ -38,6 +40,20 @@ export default function Header() {
       </div>
 
       <div className="flex items-center space-x-4">
+        {/* Time Tracking Indicator */}
+        {isTracking && (
+          <Link
+            href="/time-tracking"
+            className="flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-full hover:bg-green-100 transition-colors"
+          >
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <Clock className="h-4 w-4 text-green-600" />
+            <span className={`text-sm font-mono font-medium ${getTimerColor()}`}>
+              {formatTime(elapsedTime)}
+            </span>
+          </Link>
+        )}
+
         <NotificationBell />
 
         {/* User Profile Dropdown */}

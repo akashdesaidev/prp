@@ -1,5 +1,5 @@
 'use client';
-
+import React from 'react';
 import { useState } from 'react';
 import { Star, MessageSquare, Hash, HelpCircle, Lightbulb, AlertCircle } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -117,66 +117,121 @@ export default function DynamicQuestionTemplate({
     );
   };
 
-  const TextAreaComponent = ({
-    value,
-    onChange,
-    placeholder,
-    rows = 4,
-    readOnly = false,
-    minLength = 0,
-    maxLength = 2000
-  }) => {
-    const characterCount = value?.length || 0;
-    const isOverLimit = characterCount > maxLength;
-    const isUnderMinimum = minLength > 0 && characterCount < minLength;
+  // Create a completely isolated textarea component using React.memo
+  const TextAreaComponent = React.memo(
+    ({
+      value,
+      onChange,
+      placeholder,
+      rows = 4,
+      readOnly = false,
+      minLength = 0,
+      maxLength = 2000,
+      questionId = 'default'
+    }) => {
+      const textareaRef = React.useRef(null);
+      const timeoutRef = React.useRef(null);
+      const lastValueRef = React.useRef(value);
+      const [characterCount, setCharacterCount] = React.useState(value?.length || 0);
 
-    return (
-      <div className="space-y-2">
-        <textarea
-          value={value || ''}
-          onChange={(e) => !readOnly && onChange(e.target.value)}
-          placeholder={readOnly ? '' : placeholder}
-          rows={rows}
-          readOnly={readOnly}
-          className={`w-full border rounded-md px-3 py-2 text-sm resize-vertical transition-colors ${
-            readOnly
-              ? 'bg-gray-50 text-gray-700 cursor-default border-gray-200'
-              : error
-                ? 'border-red-300 focus:ring-2 focus:ring-red-500 focus:border-red-500'
-                : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-          }`}
-        />
+      // Only update if value actually changed from external source
+      React.useEffect(() => {
+        if (value !== lastValueRef.current && textareaRef.current) {
+          // Only update if textarea is not focused (to avoid disrupting user typing)
+          if (document.activeElement !== textareaRef.current) {
+            textareaRef.current.value = value || '';
+            setCharacterCount(value?.length || 0);
+          }
+          lastValueRef.current = value;
+        }
+      }, [value]);
 
-        <div className="flex justify-between items-center text-xs">
-          <div className="space-x-4">
-            {minLength > 0 && (
-              <span className={isUnderMinimum ? 'text-amber-600' : 'text-gray-500'}>
-                Min: {minLength} characters
-              </span>
-            )}
-          </div>
+      const isOverLimit = characterCount > maxLength;
+      const isUnderMinimum = minLength > 0 && characterCount < minLength;
 
-          <span
-            className={`${
-              isOverLimit
-                ? 'text-red-600'
-                : characterCount > maxLength * 0.9
-                  ? 'text-amber-600'
-                  : 'text-gray-500'
+      const handleChange = (e) => {
+        if (readOnly || !onChange) return;
+
+        const newValue = e.target.value;
+        setCharacterCount(newValue.length);
+        lastValueRef.current = newValue;
+
+        // Clear previous timeout
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+
+        // Debounced update to parent
+        timeoutRef.current = setTimeout(() => {
+          onChange(newValue);
+        }, 1000); // Increased delay to reduce re-renders
+      };
+
+      const textareaId = `dynamic-textarea-${questionId}`;
+
+      return (
+        <div className="space-y-2">
+          <textarea
+            ref={textareaRef}
+            id={textareaId}
+            key={textareaId} // Force stable identity
+            defaultValue={value || ''}
+            onChange={handleChange}
+            placeholder={readOnly ? '' : placeholder}
+            rows={rows}
+            readOnly={readOnly}
+            className={`w-full border rounded-md px-3 py-2 text-sm resize-vertical transition-colors ${
+              readOnly
+                ? 'bg-gray-50 text-gray-700 cursor-default border-gray-200'
+                : error
+                  ? 'border-red-300 focus:ring-2 focus:ring-red-500 focus:border-red-500'
+                  : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
             }`}
-          >
-            {characterCount}/{maxLength}
-          </span>
-        </div>
+          />
 
-        {isUnderMinimum && (
-          <div className="text-xs text-amber-600">
-            Please provide at least {minLength} characters for a complete response.
+          <div className="flex justify-between items-center text-xs">
+            <div className="space-x-4">
+              {minLength > 0 && (
+                <span className={isUnderMinimum ? 'text-amber-600' : 'text-gray-500'}>
+                  Min: {minLength} characters
+                </span>
+              )}
+            </div>
+
+            <span
+              className={`${
+                isOverLimit
+                  ? 'text-red-600'
+                  : characterCount > maxLength * 0.9
+                    ? 'text-amber-600'
+                    : 'text-gray-500'
+              }`}
+            >
+              {characterCount}/{maxLength}
+            </span>
           </div>
-        )}
-      </div>
-    );
-  };
+
+          {isUnderMinimum && (
+            <div className="text-xs text-amber-600">
+              Please provide at least {minLength} characters for a complete response.
+            </div>
+          )}
+        </div>
+      );
+    },
+    (prevProps, nextProps) => {
+      // Custom comparison to prevent unnecessary re-renders
+      return (
+        prevProps.value === nextProps.value &&
+        prevProps.placeholder === nextProps.placeholder &&
+        prevProps.rows === nextProps.rows &&
+        prevProps.readOnly === nextProps.readOnly &&
+        prevProps.minLength === nextProps.minLength &&
+        prevProps.maxLength === nextProps.maxLength &&
+        prevProps.questionId === nextProps.questionId
+      );
+    }
+  );
 
   const MultipleChoiceComponent = ({
     options,
@@ -289,6 +344,7 @@ export default function DynamicQuestionTemplate({
             readOnly={readOnly}
             minLength={question.minLength || 0}
             maxLength={question.maxLength || 2000}
+            questionId={questionId}
           />
         );
 
@@ -302,6 +358,7 @@ export default function DynamicQuestionTemplate({
             readOnly={readOnly}
             minLength={question.minLength || 50}
             maxLength={question.maxLength || 5000}
+            questionId={questionId}
           />
         );
 
@@ -331,6 +388,7 @@ export default function DynamicQuestionTemplate({
                 rows={3}
                 readOnly={readOnly}
                 maxLength={question.maxLength || 1000}
+                questionId={questionId}
               />
             </div>
           </div>

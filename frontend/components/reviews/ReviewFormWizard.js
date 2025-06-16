@@ -1,6 +1,62 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+
+// Ultra-simple uncontrolled textarea to prevent any focus loss
+const FocusStableTextArea = ({
+  initialValue,
+  onChange,
+  placeholder,
+  rows = 4,
+  readOnly = false,
+  questionId,
+  fieldType = 'text'
+}) => {
+  const textareaRef = useRef(null);
+  const timeoutRef = useRef(null);
+  const isInitializedRef = useRef(false);
+
+  // Set initial value only once
+  useEffect(() => {
+    if (!isInitializedRef.current && textareaRef.current) {
+      textareaRef.current.value = initialValue || '';
+      isInitializedRef.current = true;
+    }
+  }, []);
+
+  const handleChange = (e) => {
+    if (readOnly || !onChange) return;
+
+    // Clear previous timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Debounced update to parent
+    timeoutRef.current = setTimeout(() => {
+      onChange(e.target.value);
+    }, 500);
+  };
+
+  const textareaId = `textarea-${questionId || 'overall'}-${fieldType}`;
+
+  return (
+    <textarea
+      ref={textareaRef}
+      id={textareaId}
+      defaultValue={initialValue || ''}
+      onChange={handleChange}
+      placeholder={readOnly ? '' : placeholder}
+      rows={rows}
+      readOnly={readOnly}
+      className={`w-full border border-gray-300 rounded-md px-3 py-2 text-sm resize-vertical ${
+        readOnly
+          ? 'bg-gray-50 text-gray-700 cursor-default'
+          : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+      }`}
+    />
+  );
+};
 import {
   ChevronLeft,
   ChevronRight,
@@ -397,21 +453,6 @@ export default function ReviewFormWizard({
     );
   };
 
-  const TextAreaComponent = ({ value, onChange, placeholder, rows = 4, readOnly = false }) => (
-    <textarea
-      value={value}
-      onChange={(e) => !readOnly && onChange(e.target.value)}
-      placeholder={readOnly ? '' : placeholder}
-      rows={rows}
-      readOnly={readOnly}
-      className={`w-full border border-gray-300 rounded-md px-3 py-2 text-sm resize-vertical ${
-        readOnly
-          ? 'bg-gray-50 text-gray-700 cursor-default'
-          : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-      }`}
-    />
-  );
-
   const OverallAssessmentStep = () => {
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
@@ -526,12 +567,14 @@ export default function ReviewFormWizard({
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Additional Comments (Optional)
               </label>
-              <TextAreaComponent
-                value={formData.comments || ''}
+              <FocusStableTextArea
+                initialValue={formData.comments || ''}
                 onChange={(text) => onOverallChange('comments', text)}
                 placeholder="Any additional feedback, observations, or comments..."
                 rows={6}
                 readOnly={readOnly}
+                questionId="overall"
+                fieldType="comments"
               />
               <p className="text-xs text-gray-500 mt-2">
                 Provide any additional context, specific examples, or overall feedback.

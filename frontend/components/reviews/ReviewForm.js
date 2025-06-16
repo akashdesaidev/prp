@@ -1,8 +1,64 @@
-import { useState } from 'react';
+import { useState, useCallback, memo, useEffect, useRef } from 'react';
 import { Star, MessageSquare, Hash } from 'lucide-react';
 import { Button } from '../ui/button';
 import AISuggestionButton from '../ai/AISuggestionButton';
 import SelfAssessmentSummarizer from '../ai/SelfAssessmentSummarizer';
+
+// Ultra-simple uncontrolled textarea to prevent any focus loss
+const FocusStableTextArea = ({
+  initialValue,
+  onChange,
+  placeholder,
+  rows = 4,
+  readOnly = false,
+  questionId,
+  fieldType = 'text'
+}) => {
+  const textareaRef = useRef(null);
+  const timeoutRef = useRef(null);
+  const isInitializedRef = useRef(false);
+
+  // Set initial value only once
+  useEffect(() => {
+    if (!isInitializedRef.current && textareaRef.current) {
+      textareaRef.current.value = initialValue || '';
+      isInitializedRef.current = true;
+    }
+  }, []);
+
+  const handleChange = (e) => {
+    if (readOnly || !onChange) return;
+
+    // Clear previous timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Debounced update to parent
+    timeoutRef.current = setTimeout(() => {
+      onChange(e.target.value);
+    }, 500);
+  };
+
+  const textareaId = `textarea-${questionId || 'overall'}-${fieldType}`;
+
+  return (
+    <textarea
+      ref={textareaRef}
+      id={textareaId}
+      defaultValue={initialValue || ''}
+      onChange={handleChange}
+      placeholder={readOnly ? '' : placeholder}
+      rows={rows}
+      readOnly={readOnly}
+      className={`w-full border border-gray-300 rounded-md px-3 py-2 text-sm resize-vertical ${
+        readOnly
+          ? 'bg-gray-50 text-gray-700 cursor-default'
+          : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+      }`}
+    />
+  );
+};
 
 export default function ReviewForm({
   review,
@@ -74,25 +130,24 @@ export default function ReviewForm({
     );
   };
 
-  const TextAreaComponent = ({ value, onChange, placeholder, rows = 4, readOnly = false }) => (
-    <textarea
-      value={value}
-      onChange={(e) => !readOnly && onChange(e.target.value)}
-      placeholder={readOnly ? '' : placeholder}
-      rows={rows}
-      readOnly={readOnly}
-      className={`w-full border border-gray-300 rounded-md px-3 py-2 text-sm resize-vertical ${
-        readOnly
-          ? 'bg-gray-50 text-gray-700 cursor-default'
-          : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-      }`}
-    />
-  );
-
   const QuestionCard = ({ question, response, onResponseChange, readOnly = false }) => {
     const questionId = question._id || question.id;
-    const isExpanded = expandedQuestions[questionId];
     const questionType = getQuestionType(question);
+
+    // Stable handlers with useCallback
+    const handleRatingChange = useCallback(
+      (rating) => {
+        onResponseChange(questionId, 'rating', rating);
+      },
+      [onResponseChange, questionId]
+    );
+
+    const handleTextChange = useCallback(
+      (text) => {
+        onResponseChange(questionId, 'response', text);
+      },
+      [onResponseChange, questionId]
+    );
 
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-6">
@@ -126,7 +181,7 @@ export default function ReviewForm({
                   </label>
                   <RatingComponent
                     value={response?.rating || 0}
-                    onChange={(rating) => onResponseChange(questionId, 'rating', rating)}
+                    onChange={handleRatingChange}
                     readOnly={readOnly}
                     size="default"
                   />
@@ -137,12 +192,14 @@ export default function ReviewForm({
               {questionType === 'text' && (
                 <div className="space-y-3">
                   <label className="block text-sm font-medium text-gray-700">Your Response</label>
-                  <TextAreaComponent
-                    value={response?.response || ''}
-                    onChange={(text) => onResponseChange(questionId, 'response', text)}
+                  <FocusStableTextArea
+                    initialValue={response?.response || ''}
+                    onChange={handleTextChange}
                     placeholder="Please provide your detailed response..."
                     rows={4}
                     readOnly={readOnly}
+                    questionId={questionId}
+                    fieldType="response"
                   />
                 </div>
               )}
@@ -156,7 +213,7 @@ export default function ReviewForm({
                     </label>
                     <RatingComponent
                       value={response?.rating || 0}
-                      onChange={(rating) => onResponseChange(questionId, 'rating', rating)}
+                      onChange={handleRatingChange}
                       readOnly={readOnly}
                     />
                   </div>
@@ -165,12 +222,14 @@ export default function ReviewForm({
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Additional Comments
                     </label>
-                    <TextAreaComponent
-                      value={response?.response || ''}
-                      onChange={(text) => onResponseChange(questionId, 'response', text)}
+                    <FocusStableTextArea
+                      initialValue={response?.response || ''}
+                      onChange={handleTextChange}
                       placeholder="Please provide additional context for your rating..."
                       rows={3}
                       readOnly={readOnly}
+                      questionId={questionId}
+                      fieldType="response"
                     />
                   </div>
                 </div>
@@ -238,6 +297,21 @@ export default function ReviewForm({
 
     return totalQuestions > 0 ? Math.round((completedQuestions / totalQuestions) * 100) : 0;
   };
+
+  // Stable handlers for overall assessment
+  const handleOverallRatingChange = useCallback(
+    (rating) => {
+      onOverallChange('overallRating', rating);
+    },
+    [onOverallChange]
+  );
+
+  const handleOverallCommentsChange = useCallback(
+    (text) => {
+      onOverallChange('comments', text);
+    },
+    [onOverallChange]
+  );
 
   if (!review?.reviewCycleId?.questions) {
     return (
@@ -329,20 +403,10 @@ export default function ReviewForm({
           const questionId = question._id || question.id;
           const response = formData.responses?.find((r) => r.questionId === questionId);
 
-          console.log('Basic View Question Debug:', {
-            questionIndex: index,
-            questionId,
-            questionText: question.text || question.question || question.questionText,
-            response,
-            hasResponse: !!response,
-            responseText: response?.response,
-            responseRating: response?.rating
-          });
-
           return (
             <QuestionCard
               key={questionId}
-              question={{ ...question, index: index + 1 }}
+              question={question}
               response={response}
               onResponseChange={onResponseChange}
               readOnly={readOnly}
@@ -362,7 +426,7 @@ export default function ReviewForm({
             </label>
             <RatingComponent
               value={formData.overallRating || 0}
-              onChange={(rating) => onOverallChange('overallRating', rating)}
+              onChange={handleOverallRatingChange}
               readOnly={readOnly}
               size="large"
             />
@@ -372,12 +436,14 @@ export default function ReviewForm({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Additional Comments (Optional)
             </label>
-            <TextAreaComponent
-              value={formData.comments || ''}
-              onChange={(text) => onOverallChange('comments', text)}
+            <FocusStableTextArea
+              initialValue={formData.comments || ''}
+              onChange={handleOverallCommentsChange}
               placeholder="Any additional feedback or comments..."
               rows={4}
               readOnly={readOnly}
+              questionId="overall"
+              fieldType="comments"
             />
           </div>
         </div>
