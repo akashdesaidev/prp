@@ -6,21 +6,31 @@ import { Toaster } from 'react-hot-toast';
 import Header from './Header';
 import Sidebar, { MobileMenuProvider } from './Sidebar';
 import GlobalTimeTracker from './time/GlobalTimeTracker';
+import ProductChatbot from './ai/ProductChatbot';
 
 export default function ClientLayout({ children }) {
   return (
     <AuthProvider>
       <TimeTrackerProvider>
         <MobileMenuProvider>
-          <div className="layout-container max-w-screen-2xl w-screen bg-gray-50">
+          {/* Main Layout Container */}
+          <div className="flex w-full min-h-screen bg-gray-50">
+            {/* Sidebar - Fixed on desktop, overlay on mobile */}
             <Sidebar />
-            <div className="flex-1 max-w-[100% - 360px] overflow-auto flex flex-col min-h-screen">
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col min-w-0">
+              {/* Header */}
               <Header />
-              <main className="p-4 flex-1  overflow-y-auto">{children}</main>
+
+              {/* Main Content */}
+              <main className="flex-1 p-4 overflow-y-auto">{children}</main>
             </div>
-            {/* Global Time Tracker Widget */}
-            <GlobalTimeTracker />
           </div>
+
+          {/* Global Time Tracker Widget - Positioned absolutely */}
+          <GlobalTimeTracker />
+
           {/* Toast Notifications */}
           <Toaster
             position="top-right"
@@ -46,6 +56,9 @@ export default function ClientLayout({ children }) {
               }
             }}
           />
+
+          {/* AI Chatbot - Available throughout the app */}
+          <ProductChatbot />
         </MobileMenuProvider>
       </TimeTrackerProvider>
     </AuthProvider>

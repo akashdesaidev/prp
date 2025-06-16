@@ -43,6 +43,7 @@ router.patch(
 
 // Mark all notifications as read
 router.patch('/read-all', markAllNotificationsAsRead);
+router.patch('/mark-all-read', markAllNotificationsAsRead);
 
 // Delete notification
 router.delete(

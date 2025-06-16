@@ -18,6 +18,7 @@ router.get('/', listDepartments);
 router.post('/', rbac(['admin', 'hr']), createDepartment);
 router.get('/:id', getDepartment);
 router.put('/:id', rbac(['admin', 'hr']), updateDepartment);
+router.patch('/:id', rbac(['admin', 'hr']), updateDepartment);
 router.delete('/:id', rbac(['admin', 'hr']), deleteDepartment);
 
 export default router;

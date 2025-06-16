@@ -39,7 +39,7 @@ export const createUser = async (req, res) => {
 
 export const listUsers = async (req, res) => {
   try {
-    const { search, limit = 50, excludeSelf, role } = req.query;
+    const { search, limit = 50, excludeSelf, role, count } = req.query;
 
     // Build query
     let query = { isActive: { $ne: false } }; // Only active users
@@ -63,6 +63,12 @@ export const listUsers = async (req, res) => {
         { email: searchRegex },
         { department: searchRegex }
       ];
+    }
+
+    // Handle count parameter for dashboard
+    if (count === 'true') {
+      const userCount = await User.countDocuments(query);
+      return res.json({ count: userCount });
     }
 
     // Role-based field selection

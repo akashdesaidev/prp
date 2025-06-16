@@ -6,6 +6,7 @@ import AnalyticsDashboard from '../../components/analytics/AnalyticsDashboard';
 import TeamPerformanceAnalytics from '../../components/analytics/TeamPerformanceAnalytics';
 import FeedbackTrendAnalytics from '../../components/analytics/FeedbackTrendAnalytics';
 import ExportInterface from '../../components/analytics/ExportInterface';
+import AdminFeedbackAnalytics from '../../components/admin/AdminFeedbackAnalytics';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/Tabs';
 import { BarChart3, TrendingUp, Users, Download } from 'lucide-react';
@@ -87,7 +88,9 @@ export default function AnalyticsPage() {
 
       {/* Analytics Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList
+          className={`grid w-full ${user?.role === 'admin' ? 'grid-cols-5' : 'grid-cols-4'}`}
+        >
           <TabsTrigger value="dashboard" className="flex items-center space-x-2">
             <BarChart3 className="h-4 w-4" />
             <span>Dashboard</span>
@@ -100,6 +103,12 @@ export default function AnalyticsPage() {
             <TrendingUp className="h-4 w-4" />
             <span>Feedback Trends</span>
           </TabsTrigger>
+          {user?.role === 'admin' && (
+            <TabsTrigger value="admin-feedback" className="flex items-center space-x-2">
+              <TrendingUp className="h-4 w-4" />
+              <span>Org Feedback</span>
+            </TabsTrigger>
+          )}
           {canExport && (
             <TabsTrigger value="export" className="flex items-center space-x-2">
               <Download className="h-4 w-4" />
@@ -127,6 +136,12 @@ export default function AnalyticsPage() {
             canViewAllTeams={canViewAllTeams}
           />
         </TabsContent>
+
+        {user?.role === 'admin' && (
+          <TabsContent value="admin-feedback" className="space-y-6">
+            <AdminFeedbackAnalytics />
+          </TabsContent>
+        )}
 
         {canExport && (
           <TabsContent value="export" className="space-y-6">

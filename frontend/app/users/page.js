@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import UserRoleManager from '../../components/users/UserRoleManager';
@@ -10,6 +11,7 @@ import api from '../../lib/api';
 import toast from 'react-hot-toast';
 
 export default function UsersPage() {
+  const router = useRouter();
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -158,7 +160,10 @@ export default function UsersPage() {
                       </span>
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-900">
+                      <h3
+                        className="font-medium text-blue-600 hover:text-blue-800 cursor-pointer"
+                        onClick={() => router.push(`/users/${user._id}`)}
+                      >
                         {user.firstName} {user.lastName}
                       </h3>
                       <p className="text-sm text-gray-500">{user.email}</p>

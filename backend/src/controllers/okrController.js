@@ -86,6 +86,12 @@ export const getOKRs = async (req, res, next) => {
     if (req.query.status) filter.status = req.query.status;
     if (req.query.assignedTo) filter.assignedTo = req.query.assignedTo;
 
+    // Handle summary parameter for dashboard
+    if (req.query.summary === 'true') {
+      const count = await OKR.countDocuments(filter);
+      return res.json({ count });
+    }
+
     const okrs = await OKR.find(filter)
       .populate('assignedTo', 'firstName lastName email')
       .populate('createdBy', 'firstName lastName email')

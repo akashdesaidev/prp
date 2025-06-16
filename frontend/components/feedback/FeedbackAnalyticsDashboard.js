@@ -34,11 +34,35 @@ export default function FeedbackAnalyticsDashboard({
   teamId = null, // If provided, shows team-level analytics
   compactMode = false
 }) {
-  const [analytics, setAnalytics] = useState(null);
+  const [analytics, setAnalytics] = useState({
+    summary: {
+      totalFeedback: 0,
+      averageRating: 0,
+      responseRate: 0,
+      sentimentScore: 0,
+      growthRate: 0
+    },
+    sentiment: {
+      positive: 0,
+      neutral: 0,
+      negative: 0,
+      distribution: []
+    },
+    skills: {
+      mostFeedback: [],
+      emerging: []
+    },
+    categories: {},
+    participants: {
+      mostActive: []
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [selectedTimeRange, setSelectedTimeRange] = useState(timeRange);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showDetails, setShowDetails] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(null);
 
   const timeRanges = [
     { value: '7d', label: 'Last 7 days' },
@@ -59,6 +83,22 @@ export default function FeedbackAnalyticsDashboard({
     fetchAnalytics();
   }, [selectedTimeRange, selectedCategory, userId, teamId]);
 
+  // Auto-refresh functionality
+  useEffect(() => {
+    let interval = null;
+    if (autoRefresh) {
+      interval = setInterval(
+        () => {
+          fetchAnalytics();
+        },
+        2 * 60 * 1000
+      ); // 2 minutes
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefresh, selectedTimeRange, selectedCategory, userId, teamId]);
+
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
@@ -69,11 +109,28 @@ export default function FeedbackAnalyticsDashboard({
         teamId
       };
 
+      console.log('🔍 Fetching feedback analytics with params:', params);
+
+      // Try to fetch actual analytics data
       const response = await api.get('/feedback/analytics', { params });
-      setAnalytics(response.data);
+
+      if (response.data) {
+        console.log('📊 Analytics data received:', response.data);
+        setAnalytics(response.data);
+        setLastRefresh(new Date());
+      } else {
+        console.warn('⚠️ No analytics data received, using fallback');
+        setAnalytics(generateMockAnalytics());
+        setLastRefresh(new Date());
+      }
     } catch (error) {
-      console.error('Error fetching feedback analytics:', error);
-      // Mock data for development
+      console.error('❌ Error fetching feedback analytics:', error);
+      if (error.response?.status === 404) {
+        console.log('🔄 Analytics endpoint not found, using mock data');
+      } else if (error.response?.status === 500) {
+        console.log('🔄 Server error, using mock data');
+      }
+      // Use mock data as fallback
       setAnalytics(generateMockAnalytics());
     } finally {
       setLoading(false);
@@ -355,7 +412,16 @@ export default function FeedbackAnalyticsDashboard({
             ))}
           </select>
 
-          <Button variant="outline" onClick={fetchAnalytics}>
+          <Button
+            variant={autoRefresh ? 'default' : 'outline'}
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            size="sm"
+          >
+            <Clock className="w-4 h-4 mr-2" />
+            Auto-refresh {autoRefresh ? 'ON' : 'OFF'}
+          </Button>
+
+          <Button variant="outline" onClick={() => fetchAnalytics()}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
@@ -367,20 +433,28 @@ export default function FeedbackAnalyticsDashboard({
         </div>
       </div>
 
+      {/* Last Updated Indicator */}
+      {lastRefresh && (
+        <div className="text-right text-sm text-gray-500">
+          Last updated: {lastRefresh.toLocaleTimeString()}
+          {autoRefresh && <span className="ml-2 text-green-600">• Auto-refreshing</span>}
+        </div>
+      )}
+
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Feedback"
-          value={analytics.summary.totalFeedback}
-          subtitle={`${analytics.summary.growthRate > 0 ? '+' : ''}${analytics.summary.growthRate}% growth`}
+          value={analytics?.summary?.totalFeedback || 0}
+          subtitle={`${(analytics?.summary?.growthRate || 0) > 0 ? '+' : ''}${analytics?.summary?.growthRate || 0}% growth`}
           icon={MessageSquare}
-          trend={analytics.summary.growthRate}
+          trend={analytics?.summary?.growthRate || 0}
           color="blue"
         />
 
         <StatCard
           title="Average Rating"
-          value={`${analytics.summary.averageRating}/10`}
+          value={`${analytics?.summary?.averageRating || 0}/10`}
           subtitle="Overall feedback quality"
           icon={Star}
           color="yellow"
@@ -388,7 +462,7 @@ export default function FeedbackAnalyticsDashboard({
 
         <StatCard
           title="Response Rate"
-          value={`${analytics.summary.responseRate}%`}
+          value={`${analytics?.summary?.responseRate || 0}%`}
           subtitle="Participation engagement"
           icon={Users}
           color="green"
@@ -396,7 +470,7 @@ export default function FeedbackAnalyticsDashboard({
 
         <StatCard
           title="Positive Sentiment"
-          value={`${Math.round(analytics.summary.sentimentScore * 100)}%`}
+          value={`${Math.round((analytics?.summary?.sentimentScore || 0) * 100)}%`}
           subtitle="AI sentiment analysis"
           icon={Heart}
           color="purple"
@@ -410,14 +484,15 @@ export default function FeedbackAnalyticsDashboard({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <div className="space-y-3">
-              {analytics.sentiment.distribution.map((item) => (
+              {(analytics?.sentiment?.distribution || []).map((item) => (
                 <div key={item.name} className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="w-4 h-4 rounded" style={{ backgroundColor: item.color }}></div>
                     <span className="text-sm font-medium text-gray-900">{item.name}</span>
                   </div>
                   <div className="text-sm text-gray-600">
-                    {item.value} ({Math.round((item.value / analytics.summary.totalFeedback) * 100)}
+                    {item.value} (
+                    {Math.round((item.value / (analytics?.summary?.totalFeedback || 1)) * 100)}
                     %)
                   </div>
                 </div>
@@ -428,17 +503,17 @@ export default function FeedbackAnalyticsDashboard({
           <div className="flex items-center justify-center">
             <div className="text-center">
               <div className="text-4xl font-bold text-green-600 mb-2">
-                {analytics.sentiment.positive}
+                {analytics?.sentiment?.positive || 0}
               </div>
               <div className="text-gray-500">Positive Feedback</div>
               <div className="mt-4 flex items-center justify-center space-x-4 text-sm">
                 <div className="flex items-center space-x-1 text-gray-600">
                   <div className="w-2 h-2 bg-gray-400 rounded"></div>
-                  <span>{analytics.sentiment.neutral} Neutral</span>
+                  <span>{analytics?.sentiment?.neutral || 0} Neutral</span>
                 </div>
                 <div className="flex items-center space-x-1 text-red-600">
                   <div className="w-2 h-2 bg-red-400 rounded"></div>
-                  <span>{analytics.sentiment.negative} Negative</span>
+                  <span>{analytics?.sentiment?.negative || 0} Negative</span>
                 </div>
               </div>
             </div>

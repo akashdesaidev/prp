@@ -1,137 +1,32 @@
-import { z } from 'zod';
+// Removed unused zod import
 import aiService from '../services/aiService.js';
 import ReviewSubmission from '../models/ReviewSubmission.js';
 import Feedback from '../models/Feedback.js';
 import OKR from '../models/OKR.js';
 import User from '../models/User.js';
+import { validationResult } from 'express-validator';
 
-// Validation schemas
-const reviewSuggestionSchema = z.object({
-  revieweeId: z.string(),
-  reviewType: z.enum(['self', 'peer', 'manager', 'upward']),
-  includeOKRData: z.boolean().optional(),
-  includeFeedbackData: z.boolean().optional()
-});
-
-const selfAssessmentSummarySchema = z.object({
-  responses: z.array(
-    z.object({
-      question: z.string(),
-      response: z.string()
-    })
-  )
-});
-
-const sentimentAnalysisSchema = z.object({
-  text: z.string().min(1)
-});
+// Using express-validator for validation instead of Zod schemas
 
 // Generate review suggestion
 export const generateReviewSuggestion = async (req, res) => {
   try {
-    const parsed = reviewSuggestionSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: parsed.error.flatten()
-      });
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
 
-    const {
-      revieweeId,
-      reviewType,
-      includeOKRData = true,
-      includeFeedbackData = true
-    } = parsed.data;
+    const { reviewData } = req.body;
+    const result = await aiService.generateReviewSuggestion(reviewData);
 
-    // Get reviewee information
-    const reviewee = await User.findById(revieweeId).select('firstName lastName email');
-    if (!reviewee) {
-      return res.status(404).json({
-        success: false,
-        message: 'Reviewee not found'
-      });
+    if (!result.success) {
+      return res.status(503).json({ error: result.error });
     }
 
-    // Gather data for AI suggestion
-    let pastFeedback = '';
-    let okrProgress = '';
-
-    if (includeFeedbackData) {
-      // Get recent feedback for the reviewee
-      const recentFeedback = await Feedback.find({
-        toUserId: revieweeId,
-        createdAt: { $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) } // Last 90 days
-      })
-        .populate('fromUserId', 'firstName lastName')
-        .limit(5)
-        .sort({ createdAt: -1 });
-
-      if (recentFeedback.length > 0) {
-        pastFeedback = recentFeedback
-          .map((f) => `From ${f.fromUserId.firstName} ${f.fromUserId.lastName}: ${f.content}`)
-          .join('\n');
-      }
-    }
-
-    if (includeOKRData) {
-      // Get current OKRs and progress
-      const currentOKRs = await OKR.find({
-        assignedTo: revieweeId,
-        status: 'active'
-      }).limit(3);
-
-      if (currentOKRs.length > 0) {
-        okrProgress = currentOKRs
-          .map((okr) => {
-            const progress =
-              okr.keyResults.length > 0
-                ? Math.round(
-                    (okr.keyResults.reduce((sum, kr) => sum + (kr.score || 1), 0) /
-                      (okr.keyResults.length * 10)) *
-                      100
-                  )
-                : 0;
-            return `${okr.title}: ${progress}% complete`;
-          })
-          .join('\n');
-      }
-    }
-
-    // Generate AI suggestion
-    const reviewData = {
-      revieweeName: `${reviewee.firstName} ${reviewee.lastName}`,
-      reviewType,
-      pastFeedback,
-      okrProgress
-    };
-
-    const aiResult = await aiService.generateReviewSuggestion(reviewData);
-
-    if (!aiResult.success) {
-      return res.status(503).json({
-        success: false,
-        message: aiResult.error
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        suggestion: aiResult.suggestion,
-        provider: aiResult.provider,
-        revieweeId,
-        reviewType
-      }
-    });
+    res.json(result);
   } catch (error) {
-    console.error('Error generating review suggestion:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to generate review suggestion',
-      error: error.message
-    });
+    console.error('AI suggestion error:', error);
+    res.status(500).json({ error: 'Failed to generate suggestion' });
   }
 };
 
@@ -179,42 +74,22 @@ export const summarizeSelfAssessment = async (req, res) => {
 // Analyze sentiment
 export const analyzeSentiment = async (req, res) => {
   try {
-    const parsed = sentimentAnalysisSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: parsed.error.flatten()
-      });
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
 
-    const { text } = parsed.data;
+    const { text } = req.body;
+    const result = await aiService.analyzeSentiment(text);
 
-    // Generate AI sentiment analysis
-    const aiResult = await aiService.analyzeSentiment(text);
-
-    if (!aiResult.success) {
-      return res.status(503).json({
-        success: false,
-        message: aiResult.error
-      });
+    if (!result.success) {
+      return res.status(503).json({ error: result.error });
     }
 
-    res.json({
-      success: true,
-      data: {
-        sentiment: aiResult.sentiment,
-        qualityFlags: aiResult.qualityFlags,
-        provider: aiResult.provider
-      }
-    });
+    res.json(result);
   } catch (error) {
-    console.error('Error analyzing sentiment:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to analyze sentiment',
-      error: error.message
-    });
+    console.error('AI sentiment analysis error:', error);
+    res.status(500).json({ error: 'Failed to analyze sentiment' });
   }
 };
 
@@ -355,3 +230,95 @@ export const testAIConnection = async (req, res) => {
     });
   }
 };
+
+// New chatbot endpoint
+export const handleChatbotQuery = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { message, context, conversationHistory = [] } = req.body;
+    const userRole = req.user.role;
+    const userName = `${req.user.firstName} ${req.user.lastName}`;
+
+    // Create comprehensive context for the AI
+    const chatContext = {
+      ...context,
+      userRole,
+      userName,
+      platform: 'Performance Review Platform',
+      availableFeatures: getAvailableFeaturesForRole(userRole)
+    };
+
+    const result = await aiService.handleProductGuidance({
+      message,
+      context: chatContext,
+      conversationHistory: conversationHistory.slice(-5) // Last 5 messages for context
+    });
+
+    if (!result.success) {
+      return res.status(503).json({ error: result.error });
+    }
+
+    res.json({
+      response: result.response,
+      suggestions: result.suggestions || [],
+      actions: result.actions || []
+    });
+  } catch (error) {
+    console.error('Chatbot error:', error);
+    res.status(500).json({ error: 'Failed to process chatbot query' });
+  }
+};
+
+// Helper function to get available features based on user role
+const getAvailableFeaturesForRole = (role) => {
+  const features = {
+    admin: [
+      'User Management',
+      'Organization Setup',
+      'Review Cycle Management',
+      'OKR Management',
+      'Feedback Oversight',
+      'AI Configuration',
+      'System Settings',
+      'Analytics & Reports',
+      'Audit Logs'
+    ],
+    hr: [
+      'User Lifecycle Management',
+      'Role Assignments',
+      'Organization Management',
+      'Review Cycle Participation',
+      'OKR Coordination',
+      'Feedback Monitoring',
+      'Analytics Access',
+      'Export Permissions'
+    ],
+    manager: [
+      'Team Management',
+      'Review Cycles',
+      'OKR Management',
+      'Time Management',
+      'Feedback Oversight',
+      'AI Insights',
+      'Team Analytics',
+      'Approvals'
+    ],
+    employee: [
+      'Self Reviews',
+      'Peer Reviews',
+      'Feedback',
+      'OKRs',
+      'Time Tracking',
+      'AI Coaching',
+      'Personal Analytics'
+    ]
+  };
+
+  return features[role] || features.employee;
+};
+
+// All functions are exported individually above

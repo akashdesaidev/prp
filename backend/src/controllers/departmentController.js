@@ -4,15 +4,21 @@ import { z } from 'zod';
 export const departmentSchema = z.object({
   name: z.string().min(2),
   description: z.string().optional(),
-  parent: z.string().nullable().optional()
+  parent: z.string().nullable().optional(),
+  managerId: z.string().nullable().optional()
 });
 
 export const createDepartment = async (req, res, next) => {
   try {
     const parse = departmentSchema.safeParse(req.body);
     if (!parse.success) return res.status(400).json(parse.error.flatten());
-    const { name, description, parent } = parse.data;
-    const dept = await Department.create({ name, description, parent: parent || null });
+    const { name, description, parent, managerId } = parse.data;
+    const dept = await Department.create({
+      name,
+      description,
+      parent: parent || null,
+      managerId: managerId || null
+    });
     return res.status(201).json(dept);
   } catch (err) {
     return next(err);
@@ -21,7 +27,7 @@ export const createDepartment = async (req, res, next) => {
 
 export const listDepartments = async (_req, res, next) => {
   try {
-    const depts = await Department.find();
+    const depts = await Department.find().populate('managerId', 'firstName lastName email');
     return res.json(depts);
   } catch (err) {
     return next(err);
@@ -30,7 +36,10 @@ export const listDepartments = async (_req, res, next) => {
 
 export const getDepartment = async (req, res, next) => {
   try {
-    const dept = await Department.findById(req.params.id);
+    const dept = await Department.findById(req.params.id).populate(
+      'managerId',
+      'firstName lastName email'
+    );
     if (!dept) return res.status(404).json({ error: 'Department not found' });
     return res.json(dept);
   } catch (err) {
@@ -42,7 +51,9 @@ export const updateDepartment = async (req, res, next) => {
   try {
     const parse = departmentSchema.partial().safeParse(req.body);
     if (!parse.success) return res.status(400).json(parse.error.flatten());
-    const dept = await Department.findByIdAndUpdate(req.params.id, parse.data, { new: true });
+    const dept = await Department.findByIdAndUpdate(req.params.id, parse.data, {
+      new: true
+    }).populate('managerId', 'firstName lastName email');
     if (!dept) return res.status(404).json({ error: 'Department not found' });
     return res.json(dept);
   } catch (err) {

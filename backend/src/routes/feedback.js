@@ -131,14 +131,61 @@ router.get(
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 })
   ],
-  (req, res) => {
-    // If summary=true, redirect to stats endpoint
+  async (req, res) => {
+    // If summary=true, return simple count for dashboard
     if (req.query.summary === 'true') {
-      return feedbackController.getFeedbackStats(req, res);
+      try {
+        const userId = req.user.id;
+        const Feedback = require('../models/Feedback.js').default;
+        const [receivedCount, givenCount] = await Promise.all([
+          Feedback.countDocuments({
+            toUserId: userId,
+            status: 'active'
+          }),
+          Feedback.countDocuments({
+            fromUserId: userId,
+            status: 'active'
+          })
+        ]);
+        return res.json({ count: receivedCount + givenCount });
+      } catch (error) {
+        return res.status(500).json({ error: 'Failed to get feedback count' });
+      }
     }
     // Otherwise, get regular feedback list
     return feedbackController.getFeedbackForUser(req, res);
   }
+);
+
+// @route   GET /api/v1/feedback/analytics
+// @desc    Get comprehensive feedback analytics for dashboard
+// @access  Admin, HR, Manager, Employee
+router.get(
+  '/analytics',
+  auth,
+  [
+    query('timeRange').optional().isString().withMessage('Time range must be a string'),
+    query('category').optional().isString().withMessage('Category must be a string'),
+    query('userId').optional().isMongoId().withMessage('Invalid user ID'),
+    query('teamId').optional().isMongoId().withMessage('Invalid team ID'),
+    query('departmentId').optional().isMongoId().withMessage('Invalid department ID')
+  ],
+  feedbackController.getFeedbackAnalytics
+);
+
+// @route   GET /api/v1/feedback/analytics/sentiment
+// @desc    Get sentiment analysis for feedback
+// @access  Admin, HR, Manager
+router.get(
+  '/analytics/sentiment',
+  auth,
+  rbac(['admin', 'hr', 'manager']),
+  [
+    query('timeRange').optional().isString().withMessage('Time range must be a string'),
+    query('userId').optional().isMongoId().withMessage('Invalid user ID'),
+    query('departmentId').optional().isMongoId().withMessage('Invalid department ID')
+  ],
+  feedbackController.getFeedbackSentimentAnalytics
 );
 
 // @route   GET /api/v1/feedback/moderation
@@ -191,6 +238,21 @@ router.post(
       .withMessage('Reason must be between 10 and 500 characters')
   ],
   feedbackController.moderateFeedback
+);
+
+// @route   GET /api/v1/feedback/analytics
+// @desc    Get comprehensive feedback analytics for dashboard
+// @access  Admin, HR, Manager, Employee
+router.get(
+  '/analytics',
+  auth,
+  [
+    query('timeRange').optional().isString().withMessage('Time range must be a string'),
+    query('category').optional().isString().withMessage('Category must be a string'),
+    query('userId').optional().isMongoId().withMessage('Invalid user ID'),
+    query('teamId').optional().isMongoId().withMessage('Invalid team ID')
+  ],
+  feedbackController.getFeedbackAnalytics
 );
 
 // @route   GET /api/v1/feedback/analytics/sentiment

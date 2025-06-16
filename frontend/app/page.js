@@ -377,7 +377,7 @@ function Dashboard() {
       }
 
       if (timeRes.status === 'fulfilled') {
-        newStats.timeEntries = Math.round(okrsRes.value.data.weeklyHours || 0);
+        newStats.timeEntries = Math.round(timeRes.value.data.weeklyHours || 0);
       }
 
       if (feedbackRes.status === 'fulfilled') {

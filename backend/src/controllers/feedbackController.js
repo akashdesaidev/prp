@@ -411,6 +411,350 @@ export const getAllFeedbackForModeration = async (req, res) => {
   }
 };
 
+// Get comprehensive feedback analytics for dashboard
+// Helper function to get most active participants
+const getMostActiveParticipants = async (baseQuery) => {
+  try {
+    const participantAggregation = await Feedback.aggregate([
+      { $match: baseQuery },
+      {
+        $facet: {
+          givers: [
+            {
+              $group: {
+                _id: '$fromUserId',
+                given: { $sum: 1 },
+                avgRating: { $avg: '$rating' }
+              }
+            },
+            { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
+            { $unwind: '$user' },
+            { $sort: { given: -1 } },
+            { $limit: 10 }
+          ],
+          receivers: [
+            {
+              $group: {
+                _id: '$toUserId',
+                received: { $sum: 1 },
+                avgRating: { $avg: '$rating' }
+              }
+            },
+            { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
+            { $unwind: '$user' },
+            { $sort: { received: -1 } },
+            { $limit: 10 }
+          ]
+        }
+      }
+    ]);
+
+    const givers = participantAggregation[0]?.givers || [];
+    const receivers = participantAggregation[0]?.receivers || [];
+
+    // Combine giver and receiver data
+    const participantMap = {};
+    givers.forEach((giver) => {
+      const userId = giver._id.toString();
+      participantMap[userId] = {
+        name: `${giver.user.firstName} ${giver.user.lastName}`,
+        given: giver.given,
+        received: 0,
+        rating: Math.round(giver.avgRating * 10) / 10
+      };
+    });
+
+    receivers.forEach((receiver) => {
+      const userId = receiver._id.toString();
+      if (participantMap[userId]) {
+        participantMap[userId].received = receiver.received;
+        participantMap[userId].rating =
+          Math.round(((participantMap[userId].rating + receiver.avgRating) / 2) * 10) / 10;
+      } else {
+        participantMap[userId] = {
+          name: `${receiver.user.firstName} ${receiver.user.lastName}`,
+          given: 0,
+          received: receiver.received,
+          rating: Math.round(receiver.avgRating * 10) / 10
+        };
+      }
+    });
+
+    // Get most active participants (by total activity)
+    return Object.values(participantMap)
+      .map((p) => ({
+        ...p,
+        totalActivity: p.given + p.received
+      }))
+      .sort((a, b) => b.totalActivity - a.totalActivity)
+      .slice(0, 8)
+      .map(({ totalActivity, ...rest }) => rest);
+  } catch (error) {
+    console.error('Error getting active participants:', error);
+    return [{ name: 'No Data Available', given: 0, received: 0, rating: 0 }];
+  }
+};
+
+// Helper function to get skills data from feedback tags
+const getSkillsData = async (baseQuery) => {
+  try {
+    const skillsAggregation = await Feedback.aggregate([
+      { $match: baseQuery },
+      { $unwind: '$tags' },
+      {
+        $group: {
+          _id: '$tags',
+          count: { $sum: 1 },
+          avgRating: { $avg: '$rating' }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    const topSkills = skillsAggregation.map((skill) => ({
+      name: skill._id,
+      count: skill.count,
+      avgRating: Math.round(skill.avgRating * 10) / 10,
+      trend: Math.floor(Math.random() * 30) - 10 // Mock trend for now
+    }));
+
+    return {
+      mostFeedback: topSkills.slice(0, 5),
+      emerging: topSkills.slice(-3).map((skill) => ({
+        name: skill.name,
+        count: skill.count,
+        trend: Math.floor(Math.random() * 100) + 50 // Mock high trend for emerging
+      }))
+    };
+  } catch (error) {
+    console.error('Error getting skills data:', error);
+    return {
+      mostFeedback: [{ name: 'Communication', count: 0, avgRating: 0, trend: 0 }],
+      emerging: [{ name: 'No Data', count: 0, trend: 0 }]
+    };
+  }
+};
+
+export const getFeedbackAnalytics = async (req, res) => {
+  try {
+    const { timeRange = '30d', category, userId, teamId } = req.query;
+
+    console.log('📊 Getting feedback analytics:', { timeRange, category, userId, teamId });
+
+    // Build date filter based on time range
+    let dateFilter = {};
+    if (timeRange) {
+      const now = new Date();
+      let startDate;
+
+      switch (timeRange) {
+        case '7d':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case '6m':
+          startDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+          break;
+        case '1y':
+          startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
+
+      dateFilter.createdAt = { $gte: startDate };
+    }
+
+    // Build user filter based on role
+    let userFilter = {};
+    if (userId) {
+      userFilter.toUserId = userId;
+    } else if (req.user.role === 'manager') {
+      // Managers can only see their team's feedback
+      const teamMembers = await User.find({ managerId: req.user.id }).select('_id');
+      const teamIds = teamMembers.map((member) => member._id);
+      teamIds.push(req.user.id); // Include manager's own feedback
+      userFilter.toUserId = { $in: teamIds };
+    } else if (req.user.role === 'employee') {
+      // Employees can only see their own feedback
+      userFilter.toUserId = req.user.id;
+    }
+    // Admin and HR can see all (no filter)
+
+    const baseQuery = {
+      status: 'active',
+      ...dateFilter,
+      ...userFilter,
+      ...(category && category !== 'all' && { category })
+    };
+
+    console.log('🔍 Base query:', baseQuery);
+
+    // Get basic statistics
+    const totalFeedback = await Feedback.countDocuments(baseQuery);
+    const feedbackWithRating = await Feedback.find({ ...baseQuery, rating: { $exists: true } });
+    const averageRating =
+      feedbackWithRating.length > 0
+        ? feedbackWithRating.reduce((sum, f) => sum + f.rating, 0) / feedbackWithRating.length
+        : 0;
+
+    // Get sentiment breakdown
+    const sentimentCounts = await Feedback.aggregate([
+      { $match: baseQuery },
+      {
+        $group: {
+          _id: '$sentimentScore',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const sentimentBreakdown = {
+      positive: sentimentCounts.find((s) => s._id === 'positive')?.count || 0,
+      neutral: sentimentCounts.find((s) => s._id === 'neutral')?.count || 0,
+      negative: sentimentCounts.find((s) => s._id === 'negative')?.count || 0
+    };
+
+    // Get department breakdown for admin users
+    let departmentBreakdown = [];
+    if (req.user.role === 'admin' || req.user.role === 'hr') {
+      const departmentData = await Feedback.aggregate([
+        { $match: baseQuery },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'toUserId',
+            foreignField: '_id',
+            as: 'toUser'
+          }
+        },
+        { $unwind: '$toUser' },
+        {
+          $group: {
+            _id: '$toUser.department',
+            feedbackCount: { $sum: 1 },
+            avgRating: { $avg: '$rating' },
+            sentimentCounts: {
+              $push: '$sentimentScore'
+            }
+          }
+        },
+        {
+          $project: {
+            _id: 1,
+            name: '$_id',
+            feedbackCount: 1,
+            avgRating: { $round: ['$avgRating', 1] },
+            positiveCount: {
+              $size: {
+                $filter: {
+                  input: '$sentimentCounts',
+                  cond: { $eq: ['$$this', 'positive'] }
+                }
+              }
+            },
+            positivePercentage: {
+              $multiply: [
+                {
+                  $divide: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: '$sentimentCounts',
+                          cond: { $eq: ['$$this', 'positive'] }
+                        }
+                      }
+                    },
+                    '$feedbackCount'
+                  ]
+                },
+                100
+              ]
+            }
+          }
+        },
+        { $sort: { avgRating: -1 } }
+      ]);
+
+      departmentBreakdown = departmentData;
+    }
+
+    // Get active users count
+    const activeUsersCount = await Feedback.distinct('toUserId', baseQuery).then(
+      (users) => users.length
+    );
+
+    // Mock additional analytics data that the frontend expects
+    const analytics = {
+      summary: {
+        totalFeedback,
+        averageRating: Math.round(averageRating * 10) / 10,
+        responseRate: Math.floor(Math.random() * 30) + 70, // Mock response rate
+        sentimentScore: totalFeedback > 0 ? sentimentBreakdown.positive / totalFeedback : 0,
+        growthRate: Math.floor(Math.random() * 20) - 5, // Mock growth rate
+        activeUsers: activeUsersCount,
+        departments: departmentBreakdown.length,
+        trendingSkills: ['Communication', 'Problem Solving', 'Leadership']
+      },
+      sentiment: {
+        positive: sentimentBreakdown.positive,
+        neutral: sentimentBreakdown.neutral,
+        negative: sentimentBreakdown.negative,
+        distribution: [
+          { name: 'Positive', value: sentimentBreakdown.positive, color: '#22c55e' },
+          { name: 'Neutral', value: sentimentBreakdown.neutral, color: '#6b7280' },
+          { name: 'Negative', value: sentimentBreakdown.negative, color: '#ef4444' }
+        ]
+      },
+      skills: await getSkillsData(baseQuery),
+      categories: {
+        skills: { count: Math.floor(totalFeedback * 0.6), avgRating: 4.2, trend: 8 },
+        values: { count: Math.floor(totalFeedback * 0.3), avgRating: 4.4, trend: 15 },
+        initiatives: { count: Math.floor(totalFeedback * 0.1), avgRating: 3.9, trend: -5 }
+      },
+      participants: {
+        mostActive: await getMostActiveParticipants(baseQuery)
+      },
+      // Admin-specific data
+      departmentBreakdown,
+      topSkills: [
+        { name: 'Communication', count: Math.floor(totalFeedback * 0.3), avgRating: 4.2, trend: 8 },
+        {
+          name: 'Problem Solving',
+          count: Math.floor(totalFeedback * 0.25),
+          avgRating: 4.1,
+          trend: 15
+        },
+        { name: 'Teamwork', count: Math.floor(totalFeedback * 0.2), avgRating: 4.5, trend: -2 },
+        { name: 'Leadership', count: Math.floor(totalFeedback * 0.15), avgRating: 3.9, trend: 22 },
+        { name: 'Innovation', count: Math.floor(totalFeedback * 0.1), avgRating: 4.2, trend: 35 }
+      ],
+      mostActiveUsers: await getMostActiveParticipants(baseQuery)
+    };
+
+    console.log('📈 Feedback analytics generated:', {
+      totalFeedback,
+      averageRating: analytics.summary.averageRating,
+      sentimentBreakdown
+    });
+
+    res.json(analytics);
+  } catch (error) {
+    console.error('❌ Error getting feedback analytics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get feedback analytics',
+      error: error.message
+    });
+  }
+};
+
 // Get feedback sentiment analytics
 export const getFeedbackSentimentAnalytics = async (req, res) => {
   try {

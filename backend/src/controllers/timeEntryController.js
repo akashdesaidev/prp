@@ -159,6 +159,23 @@ export const getTimeAnalytics = async (req, res, next) => {
       filter.date = {};
       if (req.query.startDate) filter.date.$gte = new Date(req.query.startDate);
       if (req.query.endDate) filter.date.$lte = new Date(req.query.endDate);
+    } else {
+      // Default to last 7 days for dashboard summary
+      const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      filter.date = { $gte: oneWeekAgo };
+    }
+
+    // Simple summary for dashboard
+    if (req.query.summary === 'true' || req.originalUrl.includes('/summary')) {
+      const totalHours = await TimeEntry.aggregate([
+        { $match: filter },
+        { $group: { _id: null, totalHours: { $sum: '$hoursSpent' } } }
+      ]);
+
+      return res.json({
+        weeklyHours: totalHours.length > 0 ? totalHours[0].totalHours : 0,
+        entries: await TimeEntry.countDocuments(filter)
+      });
     }
 
     const analytics = await TimeEntry.aggregate([

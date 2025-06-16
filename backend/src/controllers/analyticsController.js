@@ -181,70 +181,120 @@ const exportAnalytics = async (req, res) => {
  */
 const getAnalyticsSummary = async (req, res) => {
   try {
-    // Get summary data for dashboard
-    const currentDate = new Date();
-    const thirtyDaysAgo = new Date(currentDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const { timeRange = '30d', refreshCache = false } = req.query;
 
-    const dateRange = {
-      startDate: thirtyDaysAgo.toISOString(),
+    // Get date range based on timeRange parameter
+    const currentDate = new Date();
+    let startDate;
+
+    switch (timeRange) {
+      case '7d':
+        startDate = new Date(currentDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30d':
+        startDate = new Date(currentDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case '90d':
+        startDate = new Date(currentDate.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      case '6m':
+        startDate = new Date(currentDate.getTime() - 180 * 24 * 60 * 60 * 1000);
+        break;
+      case '1y':
+        startDate = new Date(currentDate.getTime() - 365 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(currentDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
+
+    const dateRangeObj = {
+      startDate: startDate.toISOString(),
       endDate: currentDate.toISOString()
     };
 
-    // Get team analytics
-    const teamAnalytics = await analyticsService.getTeamPerformanceAnalytics(
-      null, // All teams
-      dateRange,
-      req.user
+    // Check cache first (skip cache if refresh requested)
+    const cacheKeys = cacheService.constructor.getKeys();
+    const cacheKey = cacheKeys.analyticsData(
+      'summary',
+      req.user.role,
+      `${req.user.id}-${timeRange}-${startDate.toISOString().split('T')[0]}`
     );
 
-    // Get feedback analytics
-    const feedbackAnalytics = await analyticsService.getFeedbackTrendAnalytics(
-      { dateRange },
-      req.user
-    );
+    let summaryData = null;
+    if (!refreshCache) {
+      summaryData = await cacheService.get(cacheKey);
+    }
 
-    // Calculate summary metrics
-    const summary = {
-      teams: {
-        total: teamAnalytics.length,
-        avgOkrScore:
-          teamAnalytics.length > 0
-            ? Math.round(
-                (teamAnalytics.reduce((sum, team) => sum + team.metrics.avgOkrScore, 0) /
-                  teamAnalytics.length) *
-                  100
-              ) / 100
-            : 0,
-        avgFeedbackRating:
-          teamAnalytics.length > 0
-            ? Math.round(
-                (teamAnalytics.reduce((sum, team) => sum + team.metrics.avgFeedbackRating, 0) /
-                  teamAnalytics.length) *
-                  100
-              ) / 100
-            : 0,
-        totalMembers: teamAnalytics.reduce((sum, team) => sum + team.memberCount, 0)
-      },
-      feedback: {
-        total: feedbackAnalytics.summary.totalFeedback,
-        avgRating: feedbackAnalytics.summary.avgRating,
-        sentiment: feedbackAnalytics.summary.sentimentBreakdown
-      },
-      period: {
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-        days: 30
-      }
-    };
+    if (!summaryData) {
+      console.log(
+        '📊 Generating fresh analytics summary for',
+        req.user.role,
+        'user:',
+        req.user.email
+      );
+
+      // Get team analytics
+      const teamAnalytics = await analyticsService.getTeamPerformanceAnalytics(
+        null, // All teams for admin/hr, filtered for others
+        dateRangeObj,
+        req.user
+      );
+
+      // Get feedback analytics with dynamic filtering
+      const feedbackAnalytics = await analyticsService.getFeedbackTrendAnalytics(
+        { dateRange: dateRangeObj },
+        req.user
+      );
+
+      // Calculate summary metrics
+      const summary = {
+        teams: {
+          total: teamAnalytics.length,
+          avgOkrScore:
+            teamAnalytics.length > 0
+              ? Math.round(
+                  (teamAnalytics.reduce((sum, team) => sum + team.metrics.avgOkrScore, 0) /
+                    teamAnalytics.length) *
+                    100
+                ) / 100
+              : 0,
+          avgFeedbackRating:
+            teamAnalytics.length > 0
+              ? Math.round(
+                  (teamAnalytics.reduce((sum, team) => sum + team.metrics.avgFeedbackRating, 0) /
+                    teamAnalytics.length) *
+                    100
+                ) / 100
+              : 0,
+          totalMembers: teamAnalytics.reduce((sum, team) => sum + team.memberCount, 0)
+        },
+        feedback: {
+          total: feedbackAnalytics.summary.totalFeedback,
+          avgRating: feedbackAnalytics.summary.avgRating,
+          sentiment: feedbackAnalytics.summary.sentimentBreakdown
+        },
+        period: {
+          startDate: dateRangeObj.startDate,
+          endDate: dateRangeObj.endDate,
+          days: Math.ceil((currentDate - startDate) / (1000 * 60 * 60 * 24))
+        }
+      };
+
+      summaryData = {
+        summary,
+        teamAnalytics: teamAnalytics.slice(0, 10), // Top 10 teams
+        feedbackTrends: feedbackAnalytics.trends ? feedbackAnalytics.trends.slice(-7) : [] // Last 7 periods
+      };
+
+      // Cache the result for 5 minutes
+      await cacheService.set(cacheKey, summaryData, 300);
+    }
 
     res.json({
       success: true,
-      data: {
-        summary,
-        teamAnalytics: teamAnalytics.slice(0, 10), // Top 10 teams
-        feedbackTrends: feedbackAnalytics.trends.slice(-7) // Last 7 months
-      },
-      generatedAt: new Date()
+      data: summaryData,
+      generatedAt: new Date(),
+      cached: !refreshCache && summaryData !== null
     });
   } catch (error) {
     console.error('Analytics summary error:', error);

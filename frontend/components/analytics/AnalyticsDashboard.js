@@ -8,17 +8,46 @@ export default function AnalyticsDashboard({ dateRange, userRole }) {
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [timeRange, setTimeRange] = useState('30d');
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(null);
+
+  const timeRanges = [
+    { value: '7d', label: 'Last 7 days' },
+    { value: '30d', label: 'Last 30 days' },
+    { value: '90d', label: 'Last 3 months' },
+    { value: '6m', label: 'Last 6 months' },
+    { value: '1y', label: 'Last year' }
+  ];
 
   useEffect(() => {
     fetchSummaryData();
-  }, [dateRange]);
+  }, [dateRange, timeRange]);
 
-  const fetchSummaryData = async () => {
+  // Auto-refresh for admins every 5 minutes
+  useEffect(() => {
+    let interval = null;
+    if (autoRefresh && (userRole === 'admin' || userRole === 'hr')) {
+      interval = setInterval(fetchSummaryData, 5 * 60 * 1000); // 5 minutes
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefresh, userRole]);
+
+  const fetchSummaryData = async (forceRefresh = false) => {
     try {
       setLoading(true);
+      setError(null);
       const token = localStorage.getItem('accessToken');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${apiUrl}/api/analytics/summary`, {
+
+      const params = new URLSearchParams({
+        timeRange,
+        ...(forceRefresh && { refreshCache: 'true' })
+      });
+
+      const response = await fetch(`${apiUrl}/api/analytics/summary?${params}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -31,8 +60,16 @@ export default function AnalyticsDashboard({ dateRange, userRole }) {
 
       const data = await response.json();
       setSummaryData(data.data);
+      setLastRefresh(new Date());
+
+      // Show success message for manual refresh
+      if (forceRefresh) {
+        // You can add toast notification here if available
+        console.log('📊 Analytics refreshed successfully');
+      }
     } catch (err) {
       setError(err.message);
+      console.error('Analytics fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -130,6 +167,51 @@ export default function AnalyticsDashboard({ dateRange, userRole }) {
 
   return (
     <div className="space-y-6">
+      {/* Admin Controls */}
+      {(userRole === 'admin' || userRole === 'hr') && (
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">Analytics Controls</h3>
+              <p className="text-sm text-gray-500">
+                {lastRefresh && `Last updated: ${lastRefresh.toLocaleTimeString()}`}
+              </p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <select
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                {timeRanges.map((range) => (
+                  <option key={range.value} value={range.value}>
+                    {range.label}
+                  </option>
+                ))}
+              </select>
+
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-gray-700">Auto-refresh</span>
+              </label>
+
+              <button
+                onClick={() => fetchSummaryData(true)}
+                disabled={loading}
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+              >
+                {loading ? 'Refreshing...' : 'Refresh Now'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Summary Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {metrics.map((metric, index) => {

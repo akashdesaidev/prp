@@ -271,13 +271,13 @@ export default function Sidebar() {
     <>
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden top-0  overflow-y-auto md:max-h-screen md:block ${sidebarWidth} min-w-16 transition-all duration-300 border-r border-gray-200 bg-white dark:bg-gray-900 dark:border-gray-800 min-h-screen sticky`}
+        className={`hidden md:flex flex-col ${sidebarWidth} transition-all duration-300 border-r border-gray-200 bg-white dark:bg-gray-900 dark:border-gray-800 h-screen sticky top-0 overflow-y-auto`}
       >
         {/* Collapse Toggle Button */}
-        <div className="relative z-50">
+        <div className="relative">
           <button
             onClick={toggleSidebar}
-            className="absolute right-0  z-50 top-6 w-6 h-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 "
+            className="absolute right-0 top-6 z-10 w-6 h-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
             aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {isCollapsed ? (
@@ -288,7 +288,7 @@ export default function Sidebar() {
           </button>
         </div>
 
-        <div className="p-6 overflow-hidden">
+        <div className="flex-1 p-6 overflow-hidden">
           {/* Logo */}
           <div className="flex items-center gap-2 mb-8">
             <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
