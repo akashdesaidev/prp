@@ -13,9 +13,10 @@ router.use(auth);
 
 router.post('/', createTimeEntry);
 router.get('/', getTimeEntries);
-router.patch('/:id', updateTimeEntry);
-router.delete('/:id', deleteTimeEntry);
 router.get('/analytics', getTimeAnalytics);
 router.get('/summary', getTimeAnalytics); // Alias for frontend compatibility
+router.patch('/:id', updateTimeEntry);
+router.put('/:id', updateTimeEntry); // Support both PATCH and PUT for updates
+router.delete('/:id', deleteTimeEntry);
 
 export default router;

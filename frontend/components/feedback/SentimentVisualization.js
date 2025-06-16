@@ -116,10 +116,23 @@ export default function SentimentVisualization({
           <h2 className="text-xl font-semibold text-gray-900">Sentiment Analysis</h2>
           <p className="text-gray-600">AI-powered sentiment insights from feedback</p>
         </div>
-        <Button onClick={fetchSentimentData} size="sm" variant="outline">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex items-center space-x-3">
+          <select
+            value={selectedTimeRange}
+            onChange={(e) => setSelectedTimeRange(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {timeRanges.map((range) => (
+              <option key={range.value} value={range.value}>
+                {range.label}
+              </option>
+            ))}
+          </select>
+          <Button onClick={fetchSentimentData} size="sm" variant="outline">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Overview Stats */}
@@ -130,7 +143,7 @@ export default function SentimentVisualization({
             <div>
               <p className="text-sm font-medium text-gray-500">Total Feedback</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {sentimentData.overview.totalFeedback}
+                {sentimentData?.overview?.totalFeedback || 0}
               </p>
             </div>
           </div>
@@ -142,7 +155,15 @@ export default function SentimentVisualization({
             <div>
               <p className="text-sm font-medium text-gray-500">Sentiment Score</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {(sentimentData.overview.sentimentScore * 100).toFixed(0)}%
+                {(() => {
+                  const breakdown = sentimentData?.overview?.breakdown;
+                  const totalFeedback = sentimentData?.overview?.totalFeedback || 0;
+                  const positiveCount = breakdown?.positive?.count || 0;
+
+                  if (totalFeedback === 0) return '0';
+                  return ((positiveCount / totalFeedback) * 100).toFixed(0);
+                })()}
+                %
               </p>
             </div>
           </div>
@@ -154,7 +175,20 @@ export default function SentimentVisualization({
             <div>
               <p className="text-sm font-medium text-gray-500">Avg Rating</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {sentimentData.overview.averageRating}/10
+                {(() => {
+                  const breakdown = sentimentData?.overview?.breakdown;
+                  const totalFeedback = sentimentData?.overview?.totalFeedback || 0;
+
+                  if (totalFeedback === 0) return '0.0';
+
+                  const totalRating =
+                    (breakdown?.positive?.averageRating || 0) * (breakdown?.positive?.count || 0) +
+                    (breakdown?.neutral?.averageRating || 0) * (breakdown?.neutral?.count || 0) +
+                    (breakdown?.negative?.averageRating || 0) * (breakdown?.negative?.count || 0);
+
+                  return (totalRating / totalFeedback).toFixed(1);
+                })()}
+                /10
               </p>
             </div>
           </div>
@@ -166,11 +200,14 @@ export default function SentimentVisualization({
             <div>
               <p className="text-sm font-medium text-gray-500">Positive Rate</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {(
-                  (sentimentData.overview.distribution.positive /
-                    sentimentData.overview.totalFeedback) *
-                  100
-                ).toFixed(0)}
+                {(() => {
+                  const breakdown = sentimentData?.overview?.breakdown;
+                  const totalFeedback = sentimentData?.overview?.totalFeedback || 0;
+                  const positiveCount = breakdown?.positive?.count || 0;
+
+                  if (totalFeedback === 0) return '0';
+                  return ((positiveCount / totalFeedback) * 100).toFixed(0);
+                })()}
                 %
               </p>
             </div>
@@ -183,9 +220,15 @@ export default function SentimentVisualization({
         <h3 className="text-lg font-medium text-gray-900 mb-4">Sentiment Distribution</h3>
         <div className="space-y-4">
           {['positive', 'neutral', 'negative'].map((sentiment) => {
-            const data = sentimentData.detailed[sentiment];
+            const breakdown = sentimentData?.overview?.breakdown;
+            const data = breakdown?.[sentiment] || {
+              count: 0,
+              percentage: 0,
+              averageRating: 0
+            };
             const Icon = getSentimentIcon(sentiment);
-            const percentage = (data.count / sentimentData.overview.totalFeedback) * 100;
+            const totalFeedback = sentimentData?.overview?.totalFeedback || 0;
+            const percentage = totalFeedback > 0 ? (data.count / totalFeedback) * 100 : 0;
 
             return (
               <div key={sentiment} className="flex items-center space-x-4">
@@ -221,7 +264,12 @@ export default function SentimentVisualization({
       {/* Detailed Analysis */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {['positive', 'neutral', 'negative'].map((sentiment) => {
-          const data = sentimentData.detailed[sentiment];
+          const breakdown = sentimentData?.overview?.breakdown;
+          const data = breakdown?.[sentiment] || {
+            count: 0,
+            percentage: 0,
+            averageRating: 0
+          };
           const Icon = getSentimentIcon(sentiment);
 
           return (
@@ -240,23 +288,16 @@ export default function SentimentVisualization({
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Common Keywords</h4>
-                  <div className="flex flex-wrap gap-1">
-                    {data.keywords.map((keyword, index) => (
-                      <span
-                        key={index}
-                        className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-                      >
-                        {keyword}
-                      </span>
-                    ))}
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Feedback Count</h4>
+                  <div className="text-sm text-gray-600">
+                    {data.count} feedback entries in this category
                   </div>
                 </div>
 
                 <div className="pt-3 border-t">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Avg Rating:</span>
-                    <span className="font-medium">{data.avgRating}/10</span>
+                    <span className="font-medium">{(data.averageRating || 0).toFixed(1)}/10</span>
                   </div>
                 </div>
               </div>

@@ -110,7 +110,19 @@ function NavigationItems({ navigationItems, pathname, onItemClick, isCollapsed =
   return (
     <nav className="space-y-1">
       {navigationItems.map(({ href, label, icon: Icon }) => {
-        const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
+        // More precise route matching to avoid conflicts
+        const isActive = (() => {
+          // Exact match
+          if (pathname === href) return true;
+
+          // Don't highlight parent routes when child routes are active
+          if (href === '/reviews' && pathname.startsWith('/reviews/')) return false;
+
+          // For other routes, check if pathname starts with href + '/'
+          if (href !== '/' && pathname.startsWith(href + '/')) return true;
+
+          return false;
+        })();
 
         return (
           <Link

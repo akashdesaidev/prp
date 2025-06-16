@@ -85,10 +85,14 @@ export const getTimeEntries = async (req, res, next) => {
 
 export const updateTimeEntry = async (req, res, next) => {
   try {
+    console.log('updateTimeEntry called with ID:', req.params.id);
+    console.log('Request body:', req.body);
+
     const parse = timeEntrySchema.partial().safeParse(req.body);
     if (!parse.success) return res.status(400).json(parse.error.flatten());
 
     const entry = await TimeEntry.findById(req.params.id);
+    console.log('Found entry:', entry ? 'Yes' : 'No');
     if (!entry) return res.status(404).json({ error: 'Time entry not found' });
 
     // Role-based access control
