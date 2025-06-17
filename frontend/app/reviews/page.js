@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import ReviewCyclesTable from '../../components/reviews/ReviewCyclesTable';
@@ -25,6 +25,8 @@ export default function ReviewsPage() {
     completed: 0,
     pending: 0
   });
+
+  // Separate filters from pagination data to prevent infinite loops
   const [filters, setFilters] = useState({
     status: 'all',
     type: 'all',
@@ -32,13 +34,77 @@ export default function ReviewsPage() {
     limit: 10
   });
 
+  // Separate pagination state
+  const [pagination, setPagination] = useState({
+    totalCount: 0,
+    totalPages: 1,
+    currentPage: 1
+  });
+
+  // Memoize filter params to prevent unnecessary re-renders
+  const filterParams = useMemo(
+    () => ({
+      status: filters.status,
+      type: filters.type,
+      page: filters.page,
+      limit: filters.limit
+    }),
+    [filters.status, filters.type, filters.page, filters.limit]
+  );
+
+  // Stable fetch functions using useCallback
+  const fetchReviewCycles = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/review-cycles', { params: filterParams });
+
+      const data = response.data.data || [];
+      const paginationData = response.data.pagination || {};
+
+      setReviewCycles(data);
+
+      // Update pagination separately to avoid triggering filter changes
+      setPagination({
+        totalCount: paginationData.total || data.length,
+        totalPages: paginationData.pages || 1,
+        currentPage: paginationData.current || filterParams.page
+      });
+    } catch (error) {
+      toast.error('Failed to fetch review cycles');
+      console.error('Error fetching review cycles:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filterParams]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const response = await api.get('/review-cycles/stats');
+      setStats(
+        response.data.data || {
+          total: 0,
+          active: 0,
+          completed: 0,
+          pending: 0
+        }
+      );
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  }, []);
+
+  // Effect for fetching data when filters change
   useEffect(() => {
     fetchReviewCycles();
-    fetchStats();
-  }, [filters]);
+  }, [fetchReviewCycles]);
 
+  // Effect for fetching stats (only once)
   useEffect(() => {
-    // Listen for refresh events from modal
+    fetchStats();
+  }, [fetchStats]);
+
+  // Effect for refresh events (stable)
+  useEffect(() => {
     const handleRefresh = () => {
       fetchReviewCycles();
       fetchStats();
@@ -46,58 +112,43 @@ export default function ReviewsPage() {
 
     window.addEventListener('refreshReviewCycles', handleRefresh);
     return () => window.removeEventListener('refreshReviewCycles', handleRefresh);
-  }, []);
+  }, [fetchReviewCycles, fetchStats]);
 
-  const fetchReviewCycles = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/review-cycles', { params: filters });
-      setReviewCycles(response.data.data || []);
-    } catch (error) {
-      toast.error('Failed to fetch review cycles');
-      console.error('Error fetching review cycles:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Stable handlers using useCallback
+  const handleCreateCycle = useCallback(
+    async (cycleData) => {
+      try {
+        await api.post('/review-cycles', cycleData);
+        toast.success('Review cycle created successfully');
+        setShowCreateModal(false);
+        fetchReviewCycles();
+        fetchStats();
+      } catch (error) {
+        toast.error(error.response?.data?.error || 'Failed to create review cycle');
+      }
+    },
+    [fetchReviewCycles, fetchStats]
+  );
 
-  const fetchStats = async () => {
-    try {
-      const response = await api.get('/review-cycles/stats');
-      setStats(response.data.data);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  };
+  const handleUpdateCycle = useCallback(
+    async (id, updates) => {
+      try {
+        await api.put(`/review-cycles/${id}`, updates);
+        toast.success('Review cycle updated successfully');
+        fetchReviewCycles();
+        fetchStats();
+      } catch (error) {
+        toast.error(error.response?.data?.error || 'Failed to update review cycle');
+      }
+    },
+    [fetchReviewCycles, fetchStats]
+  );
 
-  const handleCreateCycle = async (cycleData) => {
-    try {
-      await api.post('/review-cycles', cycleData);
-      toast.success('Review cycle created successfully');
-      setShowCreateModal(false);
-      fetchReviewCycles();
-      fetchStats();
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to create review cycle');
-    }
-  };
-
-  const handleUpdateCycle = async (id, updates) => {
-    try {
-      await api.put(`/review-cycles/${id}`, updates);
-      toast.success('Review cycle updated successfully');
-      fetchReviewCycles();
-      fetchStats();
-    } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to update review cycle');
-    }
-  };
-
-  const handleExport = async () => {
+  const handleExport = useCallback(async () => {
     try {
       const response = await api.get('/review-cycles/export', {
         responseType: 'blob',
-        params: filters
+        params: filterParams
       });
 
       const blob = new Blob([response.data], { type: 'text/csv' });
@@ -112,9 +163,30 @@ export default function ReviewsPage() {
     } catch (error) {
       toast.error('Failed to export review cycles');
     }
-  };
+  }, [filterParams]);
 
-  const canCreateCycle = user?.role === 'admin' || user?.role === 'hr';
+  // Stable filter change handler
+  const handleFiltersChange = useCallback((newFilters) => {
+    setFilters(newFilters);
+  }, []);
+
+  // Memoize computed values
+  const canCreateCycle = useMemo(() => user?.role === 'admin' || user?.role === 'hr', [user?.role]);
+
+  const activeCycles = useMemo(
+    () =>
+      reviewCycles.filter((cycle) => cycle.status === 'active' || cycle.status === 'grace-period'),
+    [reviewCycles]
+  );
+
+  // Combine filters and pagination for table component
+  const tableFilters = useMemo(
+    () => ({
+      ...filters,
+      ...pagination
+    }),
+    [filters, pagination]
+  );
 
   return (
     <ProtectedRoute>
@@ -152,14 +224,11 @@ export default function ReviewsPage() {
         <ReviewCycleStats stats={stats} />
 
         {/* Progress Tracker */}
-        {showProgressTracker && reviewCycles.length > 0 && (
+        {showProgressTracker && activeCycles.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {reviewCycles
-              .filter((cycle) => cycle.status === 'active' || cycle.status === 'grace-period')
-              .slice(0, 4)
-              .map((cycle) => (
-                <ReviewProgressTracker key={cycle._id} reviewCycleId={cycle._id} compact={true} />
-              ))}
+            {activeCycles.slice(0, 4).map((cycle) => (
+              <ReviewProgressTracker key={cycle._id} reviewCycleId={cycle._id} compact={true} />
+            ))}
           </div>
         )}
 
@@ -226,8 +295,8 @@ export default function ReviewsPage() {
           loading={loading}
           onUpdate={handleUpdateCycle}
           canEdit={canCreateCycle}
-          filters={filters}
-          onFiltersChange={setFilters}
+          filters={tableFilters}
+          onFiltersChange={handleFiltersChange}
         />
 
         {/* Create Review Cycle Modal */}

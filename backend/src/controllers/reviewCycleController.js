@@ -123,11 +123,26 @@ const generateAISuggestionForManager = async (
 const createReviewSubmissionsForCycle = async (reviewCycle) => {
   try {
     console.log(`🔄 Creating review submissions for cycle: ${reviewCycle.name}`);
+    console.log(`👥 Processing ${reviewCycle.participants.length} participants`);
 
     const submissions = [];
 
     for (const participant of reviewCycle.participants) {
-      const userId = participant.userId;
+      // Handle both populated and non-populated userId
+      const userId = participant.userId._id || participant.userId;
+      console.log(`\n📋 Processing participant: ${userId}`);
+
+      // Get user details with manager populated
+      const user = await User.findById(userId).populate('managerId');
+      if (!user) {
+        console.log(`❌ User not found: ${userId}`);
+        continue;
+      }
+
+      console.log(`👤 User: ${user.firstName} ${user.lastName} (${user.email})`);
+      console.log(
+        `👔 Manager: ${user.managerId ? `${user.managerId.firstName} ${user.managerId.lastName} (${user.managerId._id})` : 'None'}`
+      );
 
       // Create self-assessment submission
       const existingSelfReview = await ReviewSubmission.findOne({
@@ -150,15 +165,18 @@ const createReviewSubmissionsForCycle = async (reviewCycle) => {
         await selfSubmission.save();
         submissions.push(selfSubmission);
         console.log(`✅ Created self-assessment for user ${userId}`);
+      } else {
+        console.log(`⚠️  Self-assessment already exists for user ${userId}`);
       }
 
       // Create manager review submission (if user has a manager)
-      const user = await User.findById(userId).populate('managerId');
-      if (user && user.managerId) {
+      if (user.managerId) {
+        const managerId = user.managerId._id || user.managerId;
+
         const existingManagerReview = await ReviewSubmission.findOne({
           reviewCycleId: reviewCycle._id,
           revieweeId: userId,
-          reviewerId: user.managerId._id,
+          reviewerId: managerId,
           reviewType: 'manager'
         });
 
@@ -174,12 +192,12 @@ const createReviewSubmissionsForCycle = async (reviewCycle) => {
           const managerSubmission = new ReviewSubmission({
             reviewCycleId: reviewCycle._id,
             revieweeId: userId,
-            reviewerId: user.managerId._id,
+            reviewerId: managerId,
             reviewType: 'manager',
             status: 'draft',
             responses: aiSuggestion?.suggestedResponses || [],
             aiSuggestions: aiSuggestion || {
-              suggestedComments: '',
+              suggestedComments: `Performance review for ${user.firstName} ${user.lastName}`,
               usedSuggestion: false
             }
           });
@@ -187,18 +205,24 @@ const createReviewSubmissionsForCycle = async (reviewCycle) => {
           await managerSubmission.save();
           submissions.push(managerSubmission);
           console.log(
-            `✅ Created manager review for user ${userId} (manager: ${user.managerId._id})${aiSuggestion ? ' with AI suggestion' : ''}`
+            `✅ Created manager review for user ${userId} (manager: ${managerId})${aiSuggestion ? ' with AI suggestion' : ''}`
           );
+        } else {
+          console.log(`⚠️  Manager review already exists for user ${userId}`);
         }
+      } else {
+        console.log(
+          `⚠️  No manager assigned for user ${userId} - skipping manager review creation`
+        );
       }
     }
 
     console.log(
-      `🎉 Created ${submissions.length} review submissions for cycle ${reviewCycle.name}`
+      `\n🎉 Successfully created ${submissions.length} review submissions for cycle "${reviewCycle.name}"`
     );
     return submissions;
   } catch (error) {
-    console.error('Error creating review submissions:', error);
+    console.error('❌ Error creating review submissions:', error);
     throw error;
   }
 };
@@ -448,6 +472,9 @@ export const updateReviewCycle = async (req, res) => {
       'isEmergency'
     ];
 
+    // Store the original status before changes
+    const originalStatus = reviewCycle.status;
+
     // Only allow status updates for specific transitions
     if (req.body.status) {
       const validTransitions = {
@@ -473,19 +500,28 @@ export const updateReviewCycle = async (req, res) => {
       }
     });
 
-    // Check if status is changing to 'active' and create review submissions
-    const wasStatusChanged = req.body.status && req.body.status !== reviewCycle.status;
-    const isBecomingActive = req.body.status === 'active';
+    // Check if status is changing to 'active'
+    const isBecomingActive = req.body.status === 'active' && originalStatus !== 'active';
 
     await reviewCycle.save();
 
     // Create review submissions when cycle becomes active
-    if (wasStatusChanged && isBecomingActive) {
+    if (isBecomingActive) {
       try {
+        console.log(
+          `🔄 Review cycle "${reviewCycle.name}" activated, creating review submissions...`
+        );
+
+        // Populate participants before creating submissions
+        await reviewCycle.populate('participants.userId');
+
         await createReviewSubmissionsForCycle(reviewCycle);
+
+        console.log(`✅ Review submissions created for cycle "${reviewCycle.name}"`);
       } catch (error) {
         console.error('Error creating review submissions:', error);
-        // Don't fail the update if submission creation fails
+        // Don't fail the update if submission creation fails, but log the error
+        console.error('Review submissions creation failed, but cycle was still activated');
       }
     }
 
@@ -556,6 +592,7 @@ export const assignParticipants = async (req, res) => {
 
     const users = await User.find({ _id: { $in: userIds } });
     const assignments = [];
+    const newParticipantIds = [];
 
     for (const user of users) {
       const existingParticipant = reviewCycle.participants.find(
@@ -568,6 +605,8 @@ export const assignParticipants = async (req, res) => {
           role: 'reviewee',
           status: 'pending'
         });
+
+        newParticipantIds.push(user._id);
 
         assignments.push({
           userId: user._id,
@@ -587,11 +626,33 @@ export const assignParticipants = async (req, res) => {
     await reviewCycle.save();
 
     // Create review submissions for newly assigned participants if cycle is active
-    if (reviewCycle.status === 'active') {
+    if (reviewCycle.status === 'active' && newParticipantIds.length > 0) {
       try {
-        await createReviewSubmissionsForCycle(reviewCycle);
+        console.log(
+          `🔄 Creating review submissions for ${newParticipantIds.length} new participants in active cycle`
+        );
+
+        // Create a temporary cycle object with only new participants for submission creation
+        const tempCycle = {
+          ...reviewCycle.toObject(),
+          participants: reviewCycle.participants.filter((p) =>
+            newParticipantIds.some((id) => id.toString() === p.userId.toString())
+          )
+        };
+
+        // Populate the new participants
+        await reviewCycle.populate('participants.userId');
+        tempCycle.participants = reviewCycle.participants.filter((p) =>
+          newParticipantIds.some((id) => id.toString() === (p.userId._id || p.userId).toString())
+        );
+
+        await createReviewSubmissionsForCycle(tempCycle);
+
+        console.log(
+          `✅ Review submissions created for ${newParticipantIds.length} new participants`
+        );
       } catch (error) {
-        console.error('Error creating review submissions:', error);
+        console.error('Error creating review submissions for new participants:', error);
         // Don't fail the assignment if submission creation fails
       }
     }
@@ -816,12 +877,12 @@ export const debugReviewCycles = async (req, res) => {
   }
 };
 
-// Generate review submissions for active cycles (manual trigger)
+// Manual trigger to create review submissions (for testing/debugging)
 export const generateReviewSubmissions = async (req, res) => {
   try {
     const reviewCycleId = req.params.id;
 
-    const reviewCycle = await ReviewCycle.findById(reviewCycleId);
+    const reviewCycle = await ReviewCycle.findById(reviewCycleId).populate('participants.userId');
     if (!reviewCycle) {
       return res.status(404).json({
         success: false,
@@ -829,26 +890,31 @@ export const generateReviewSubmissions = async (req, res) => {
       });
     }
 
-    if (reviewCycle.status !== 'active') {
-      return res.status(400).json({
-        success: false,
-        message: 'Can only generate submissions for active review cycles'
-      });
-    }
+    console.log(`🔄 Manual trigger: Creating review submissions for cycle "${reviewCycle.name}"`);
+    console.log(`📊 Cycle status: ${reviewCycle.status}`);
+    console.log(`👥 Participants: ${reviewCycle.participants.length}`);
 
+    // Force creation of review submissions regardless of cycle status
     const submissions = await createReviewSubmissionsForCycle(reviewCycle);
 
     res.json({
       success: true,
-      message: `Generated ${submissions.length} review submissions`,
+      message: `Review submissions created successfully`,
       data: {
-        reviewCycleId: reviewCycle._id,
-        reviewCycleName: reviewCycle.name,
-        submissionsCreated: submissions.length
+        cycleId: reviewCycleId,
+        cycleName: reviewCycle.name,
+        participantCount: reviewCycle.participants.length,
+        submissionsCreated: submissions.length,
+        submissions: submissions.map((s) => ({
+          reviewType: s.reviewType,
+          revieweeId: s.revieweeId,
+          reviewerId: s.reviewerId,
+          status: s.status
+        }))
       }
     });
   } catch (error) {
-    console.error('Error generating review submissions:', error);
+    console.error('Error manually generating review submissions:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to generate review submissions',
