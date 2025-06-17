@@ -62,7 +62,15 @@ const NotificationsPage = () => {
           <div className="p-6">
             {activeTab === 'notifications' ? (
               <div className="max-w-4xl">
-                <NotificationCenter isOpen={true} onClose={() => {}} />
+                {/* Custom notification list for page view */}
+                <div className="bg-white rounded-lg border border-gray-200 max-h-[70vh] flex flex-col">
+                  <div className="p-4 border-b border-gray-200 flex-shrink-0">
+                    <h3 className="text-lg font-semibold text-gray-900">All Notifications</h3>
+                  </div>
+                  <div className="flex-1 overflow-y-auto min-h-0">
+                    <NotificationCenter isOpen={true} onClose={() => {}} isPageView={true} />
+                  </div>
+                </div>
               </div>
             ) : (
               <NotificationPreferences />
