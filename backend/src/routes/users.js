@@ -16,9 +16,9 @@ import {
 const router = Router();
 
 router.use(auth);
-router.get('/', rbac(['admin', 'hr', 'manager']), listUsers);
+router.get('/', rbac(['admin', 'hr', 'manager', 'employee']), listUsers);
 router.post('/', rbac(['admin', 'hr']), createUser);
-router.get('/:id', rbac(['admin', 'hr', 'manager']), getUser);
+router.get('/:id', rbac(['admin', 'hr', 'manager', 'employee']), getUser);
 router.patch('/:id', rbac(['admin', 'hr']), updateUser);
 router.patch('/:id/manager', rbac(['admin', 'hr', 'manager']), updateUserRelations);
 router.patch('/:id/role', rbac(['admin', 'hr']), updateUserRole);

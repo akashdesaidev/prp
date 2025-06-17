@@ -103,6 +103,7 @@ feedbackSchema.statics.findForUser = function (userId, options = {}) {
   if (options.type) query.type = options.type;
   if (options.category) query.category = options.category;
   if (options.reviewCycleId) query.reviewCycleId = options.reviewCycleId;
+  if (options.sentiment) query.sentimentScore = options.sentiment;
 
   return this.find(query)
     .populate('fromUserId', 'firstName lastName email')

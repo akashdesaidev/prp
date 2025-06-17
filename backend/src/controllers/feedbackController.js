@@ -6,7 +6,15 @@ import { validationResult } from 'express-validator';
 // Get feedback for a user (received feedback)
 export const getFeedbackForUser = async (req, res) => {
   try {
-    const { userId = req.user.id, type, category, reviewCycleId, page = 1, limit = 20 } = req.query;
+    const {
+      userId = req.user.id,
+      type,
+      category,
+      reviewCycleId,
+      sentiment,
+      page = 1,
+      limit = 20
+    } = req.query;
 
     // Check permissions - users can only see their own feedback unless admin/hr
     if (userId !== req.user.id && !['admin', 'hr'].includes(req.user.role)) {
@@ -16,7 +24,7 @@ export const getFeedbackForUser = async (req, res) => {
       });
     }
 
-    const options = { type, category, reviewCycleId };
+    const options = { type, category, reviewCycleId, sentiment };
 
     const feedback = await Feedback.findForUser(userId, options)
       .limit(limit * 1)
@@ -27,7 +35,8 @@ export const getFeedbackForUser = async (req, res) => {
       status: 'active',
       ...(type && { type }),
       ...(category && { category }),
-      ...(reviewCycleId && { reviewCycleId })
+      ...(reviewCycleId && { reviewCycleId }),
+      ...(sentiment && { sentimentScore: sentiment })
     });
 
     res.json({
