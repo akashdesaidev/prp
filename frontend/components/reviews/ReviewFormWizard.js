@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 
 // Ultra-simple uncontrolled textarea to prevent any focus loss
 const FocusStableTextArea = ({
@@ -90,7 +90,84 @@ export default function ReviewFormWizard({
   const [completedSteps, setCompletedSteps] = useState(new Set());
   const [validationErrors, setValidationErrors] = useState({});
 
-  // Move useEffect to the top to avoid conditional hook issues
+  // Memoize steps creation to prevent unnecessary recalculations
+  const { steps, totalSteps } = useMemo(() => {
+    const questions = review?.reviewCycleId?.questions || [];
+    // Dynamic questions per step based on total questions
+    const questionsPerStep = questions.length <= 6 ? 1 : questions.length <= 12 ? 2 : 3;
+    const totalSteps = Math.ceil(questions.length / questionsPerStep) + 2; // +2 for overall assessment and summary steps
+
+    // Create steps from questions - always group by count for consistency
+    const steps = [];
+
+    if (questions.length === 0) {
+      // No questions, just add overall assessment and summary
+      console.log('No questions found, skipping question steps');
+    } else {
+      // Always group by count for predictable behavior
+      console.log('Creating question steps:', {
+        totalQuestions: questions.length,
+        questionsPerStep,
+        expectedStepCount: Math.ceil(questions.length / questionsPerStep)
+      });
+
+      for (let i = 0; i < questions.length; i += questionsPerStep) {
+        const stepQuestions = questions.slice(i, i + questionsPerStep);
+        const stepNumber = Math.floor(i / questionsPerStep) + 1;
+
+        steps.push({
+          id: Math.floor(i / questionsPerStep),
+          title: `Section ${stepNumber}`,
+          description: `Questions ${i + 1}-${Math.min(i + questionsPerStep, questions.length)} of ${questions.length}`,
+          questions: stepQuestions
+        });
+
+        console.log(`Created step ${stepNumber}:`, {
+          stepId: Math.floor(i / questionsPerStep),
+          questionsInStep: stepQuestions.length,
+          questionRange: `${i + 1}-${Math.min(i + questionsPerStep, questions.length)}`
+        });
+      }
+    }
+
+    // Add overall assessment step
+    steps.push({
+      id: steps.length,
+      title: 'Overall Assessment',
+      description: 'Provide your overall rating and comments',
+      questions: [],
+      isOverallAssessment: true
+    });
+
+    // Add summary step
+    steps.push({
+      id: steps.length,
+      title: 'Review & Submit',
+      description: 'Review your responses and submit',
+      questions: [],
+      isSummary: true
+    });
+
+    return { steps, totalSteps };
+  }, [review?.reviewCycleId?.questions]);
+
+  // Helper to get the actual question type from either type field or requiresRating field
+  const getQuestionType = (question) => {
+    // If question has explicit type field, use it
+    if (question.type) {
+      return question.type;
+    }
+
+    // For ReviewCycle questions, infer type from requiresRating field
+    if (question.requiresRating !== undefined) {
+      return question.requiresRating ? 'rating_text' : 'text';
+    }
+
+    // Default fallback
+    return 'text';
+  };
+
+  // Validation effect - runs when step or data changes (AFTER steps are created)
   useEffect(() => {
     // This will be called after steps are created
     const validateCurrentStep = () => {
@@ -148,87 +225,15 @@ export default function ReviewFormWizard({
       }
     };
 
-    // Helper to get the actual question type from either type field or requiresRating field
-    const getQuestionType = (question) => {
-      // If question has explicit type field, use it
-      if (question.type) {
-        return question.type;
-      }
-
-      // For ReviewCycle questions, infer type from requiresRating field
-      if (question.requiresRating !== undefined) {
-        return question.requiresRating ? 'rating_text' : 'text';
-      }
-
-      // Default fallback
-      return 'text';
-    };
-
     if (steps.length > 0) {
       validateCurrentStep();
     }
   }, [currentStep, formData, steps.length]);
 
-  const questions = review?.reviewCycleId?.questions || [];
-  // Dynamic questions per step based on total questions
-  const questionsPerStep = questions.length <= 6 ? 1 : questions.length <= 12 ? 2 : 3;
-  const totalSteps = Math.ceil(questions.length / questionsPerStep) + 2; // +2 for overall assessment and summary steps
-
-  // Create steps from questions - always group by count for consistency
-  const steps = [];
-
-  if (questions.length === 0) {
-    // No questions, just add overall assessment and summary
-    console.log('No questions found, skipping question steps');
-  } else {
-    // Always group by count for predictable behavior
-    console.log('Creating question steps:', {
-      totalQuestions: questions.length,
-      questionsPerStep,
-      expectedStepCount: Math.ceil(questions.length / questionsPerStep)
-    });
-
-    for (let i = 0; i < questions.length; i += questionsPerStep) {
-      const stepQuestions = questions.slice(i, i + questionsPerStep);
-      const stepNumber = Math.floor(i / questionsPerStep) + 1;
-
-      steps.push({
-        id: Math.floor(i / questionsPerStep),
-        title: `Section ${stepNumber}`,
-        description: `Questions ${i + 1}-${Math.min(i + questionsPerStep, questions.length)} of ${questions.length}`,
-        questions: stepQuestions
-      });
-
-      console.log(`Created step ${stepNumber}:`, {
-        stepId: Math.floor(i / questionsPerStep),
-        questionsInStep: stepQuestions.length,
-        questionRange: `${i + 1}-${Math.min(i + questionsPerStep, questions.length)}`
-      });
-    }
-  }
-
-  // Add overall assessment step
-  steps.push({
-    id: steps.length,
-    title: 'Overall Assessment',
-    description: 'Provide your overall rating and comments',
-    questions: [],
-    isOverallAssessment: true
-  });
-
-  // Add summary step
-  steps.push({
-    id: steps.length,
-    title: 'Review & Submit',
-    description: 'Review your responses and submit',
-    questions: [],
-    isSummary: true
-  });
-
   // Debug steps creation
+  const questions = review?.reviewCycleId?.questions || [];
   console.log('Wizard Steps Debug:', {
     questionsLength: questions.length,
-    questionsPerStep,
     totalSteps,
     stepsCount: steps.length,
     steps: steps.map((s, index) => ({
