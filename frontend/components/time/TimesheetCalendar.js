@@ -4,9 +4,9 @@ import { ChevronLeft, ChevronRight, Calendar, Clock, Plus, Eye } from 'lucide-re
 import { Button } from '../ui/button';
 import api from '../../lib/api';
 import toast from 'react-hot-toast';
-import { formatDateLocal } from '../../lib/utils';
+import { formatDateLocal, formatHours } from '../../lib/utils';
 
-export default function TimesheetCalendar({ onDateSelect, onEntryClick }) {
+export default function TimesheetCalendar({ onDateSelect, onEntryClick, refreshTrigger }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [timeEntries, setTimeEntries] = useState({});
   const [loading, setLoading] = useState(true);
@@ -16,6 +16,25 @@ export default function TimesheetCalendar({ onDateSelect, onEntryClick }) {
   useEffect(() => {
     fetchTimeEntries();
   }, [currentDate]);
+
+  // Add effect to refresh when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger) {
+      fetchTimeEntries();
+    }
+  }, [refreshTrigger]);
+
+  // Add a method to refresh data that can be called externally
+  const refreshData = () => {
+    fetchTimeEntries();
+  };
+
+  // Expose refresh method via ref or callback
+  useEffect(() => {
+    if (window.refreshTimesheetCalendar) {
+      window.refreshTimesheetCalendar = refreshData;
+    }
+  }, []);
 
   const fetchTimeEntries = async () => {
     try {
@@ -88,7 +107,8 @@ export default function TimesheetCalendar({ onDateSelect, onEntryClick }) {
   const getTotalHoursForDate = (date) => {
     const dateStr = formatDate(date);
     const entries = timeEntries[dateStr] || [];
-    return entries.reduce((sum, entry) => sum + entry.hoursSpent, 0);
+    const total = entries.reduce((sum, entry) => sum + (parseFloat(entry.hoursSpent) || 0), 0);
+    return parseFloat(formatHours(total));
   };
 
   const getHoursColor = (hours) => {
@@ -263,7 +283,7 @@ export default function TimesheetCalendar({ onDateSelect, onEntryClick }) {
                   ${getHoursColor(totalHours)}
                 `}
                 >
-                  {totalHours.toFixed(1)}h
+                  {formatHours(totalHours)}h
                 </div>
               )}
 
@@ -312,7 +332,7 @@ export default function TimesheetCalendar({ onDateSelect, onEntryClick }) {
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-gray-500" />
               <span className="font-medium">
-                {getTotalHoursForDate(selectedDate).toFixed(1)}h logged
+                {formatHours(getTotalHoursForDate(selectedDate))}h logged
               </span>
             </div>
           </div>
@@ -326,7 +346,7 @@ export default function TimesheetCalendar({ onDateSelect, onEntryClick }) {
                     <span className="font-medium">{entry.okrId?.title || 'Unknown OKR'}</span>
                     <span className="text-gray-500">({entry.category.replace('_', ' ')})</span>
                   </div>
-                  <span className="font-medium">{parseFloat(entry.hoursSpent).toFixed(1)}h</span>
+                  <span className="font-medium">{formatHours(parseFloat(entry.hoursSpent))}h</span>
                 </div>
               ))}
             </div>

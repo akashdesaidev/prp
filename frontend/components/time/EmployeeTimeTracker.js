@@ -15,7 +15,8 @@ import {
   Settings,
   Bell,
   Activity,
-  Zap
+  Zap,
+  Timer
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import TimeEntryForm from './TimeEntryForm';
@@ -38,51 +39,42 @@ export default function EmployeeTimeTracker() {
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Employee-focused tabs - comprehensive interface
   const tabs = [
-    { id: 'overview', label: 'My Time', icon: Clock },
-    { id: 'tracker', label: 'Live Tracker', icon: Play },
+    { id: 'overview', label: 'Overview', icon: BarChart3 },
+    { id: 'tracker', label: 'Quick Track', icon: Timer },
     { id: 'timesheet', label: 'Weekly View', icon: Calendar },
     { id: 'calendar', label: 'Calendar', icon: Calendar },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
     { id: 'insights', label: 'AI Insights', icon: Brain },
-    { id: 'optimizer', label: 'Smart Optimizer', icon: TrendingUp },
-    { id: 'goals', label: 'My OKRs', icon: Target }
+    { id: 'optimizer', label: 'Smart Tips', icon: Zap },
+    { id: 'goals', label: 'My Goals', icon: Target }
   ];
 
   useEffect(() => {
-    if (activeTab === 'overview') {
-      fetchOverviewData();
-    }
-  }, [activeTab]);
+    fetchOverviewData();
+  }, []);
 
   const fetchOverviewData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('accessToken');
-
-      // Fetch personal time entries and OKRs
       const [entriesResponse, okrsResponse] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/time-entries?limit=10&populate=okrId`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/okrs?assignedTo=${user.id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        api.get('/time-entries?limit=10'),
+        api.get('/okrs')
       ]);
 
-      if (entriesResponse.ok) {
-        const entriesData = await entriesResponse.json();
-        setTimeEntries(entriesData);
+      if (entriesResponse.data) {
+        setTimeEntries(entriesResponse.data);
       }
 
-      if (okrsResponse.ok) {
-        const okrsData = await okrsResponse.json();
-        setOkrs(okrsData);
+      if (okrsResponse.data) {
+        setOkrs(okrsResponse.data);
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error fetching overview data:', error);
+      toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -92,8 +84,11 @@ export default function EmployeeTimeTracker() {
     if (activeTab === 'overview') {
       fetchOverviewData();
     }
+    // Trigger refresh for calendar and timesheet components
+    setRefreshTrigger((prev) => prev + 1);
     setShowEntryForm(false);
     setSelectedEntry(null);
+    setSelectedDate(null);
   };
 
   const handleEditEntry = (entry) => {
@@ -482,7 +477,7 @@ export default function EmployeeTimeTracker() {
       case 'tracker':
         return <TimeTracker onTimeLogged={handleEntrySuccess} />;
       case 'timesheet':
-        return <WeeklyTimesheet />;
+        return <WeeklyTimesheet onTimeEntryUpdate={handleEntrySuccess} />;
       case 'calendar':
         return (
           <TimesheetCalendar
@@ -492,6 +487,7 @@ export default function EmployeeTimeTracker() {
               setSelectedDate(formattedDate);
               setShowEntryForm(true);
             }}
+            refreshTrigger={refreshTrigger}
           />
         );
       case 'analytics':

@@ -15,3 +15,18 @@ export function formatDateLocal(date) {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+/**
+ * Round number to 2 decimal places and fix floating point precision issues
+ */
+export function roundToDecimal(number, decimals = 2) {
+  return Math.round((number + Number.EPSILON) * Math.pow(10, decimals)) / Math.pow(10, decimals);
+}
+
+/**
+ * Format hours display with proper rounding
+ */
+export function formatHours(hours, decimals = 1) {
+  if (!hours || hours === 0) return '0';
+  return roundToDecimal(hours, decimals).toFixed(decimals);
+}

@@ -14,8 +14,9 @@ import {
 import { Button } from '../ui/button';
 import api from '../../lib/api';
 import toast from 'react-hot-toast';
+import { formatDateLocal, formatHours } from '../../lib/utils';
 
-export default function WeeklyTimesheet() {
+export default function WeeklyTimesheet({ onTimeEntryUpdate }) {
   const [currentWeek, setCurrentWeek] = useState(getStartOfWeek(new Date()));
   const [timeEntries, setTimeEntries] = useState({});
   const [okrs, setOkrs] = useState([]);
@@ -49,7 +50,7 @@ export default function WeeklyTimesheet() {
   }
 
   function formatDate(date) {
-    return date.toISOString().split('T')[0];
+    return formatDateLocal(date);
   }
 
   function formatDisplayDate(date) {
@@ -59,42 +60,41 @@ export default function WeeklyTimesheet() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('accessToken');
 
       const weekStart = formatDate(currentWeek);
       const weekEnd = formatDate(new Date(currentWeek.getTime() + 6 * 24 * 60 * 60 * 1000));
 
       const [entriesResponse, okrsResponse] = await Promise.all([
-        fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/time-entries?startDate=${weekStart}&endDate=${weekEnd}`,
-          {
-            headers: { Authorization: `Bearer ${token}` }
+        api.get('/time-entries', {
+          params: {
+            startDate: weekStart,
+            endDate: weekEnd
           }
-        ),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/okrs`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        }),
+        api.get('/okrs')
       ]);
 
-      if (entriesResponse.ok) {
-        const entries = await entriesResponse.json();
-        const entriesMap = {};
-
-        entries.forEach((entry) => {
-          const key = `${entry.okrId._id}-${entry.date}-${entry.category}`;
-          entriesMap[key] = entry;
+      // Handle time entries data
+      const entriesMap = {};
+      if (entriesResponse.data && Array.isArray(entriesResponse.data)) {
+        entriesResponse.data.forEach((entry) => {
+          // Ensure we have proper OKR data
+          if (entry.okrId && (typeof entry.okrId === 'object' ? entry.okrId._id : entry.okrId)) {
+            const okrId = typeof entry.okrId === 'object' ? entry.okrId._id : entry.okrId;
+            const entryDate = entry.date.split('T')[0];
+            const key = `${okrId}-${entryDate}-${entry.category}`;
+            entriesMap[key] = entry;
+          }
         });
-
         setTimeEntries(entriesMap);
       }
 
-      if (okrsResponse.ok) {
-        const okrsData = await okrsResponse.json();
-        setOkrs(okrsData);
-
+      // Handle OKRs data
+      if (okrsResponse.data && Array.isArray(okrsResponse.data)) {
+        setOkrs(okrsResponse.data);
         // Calculate weekly targets (example: 40 hours distributed across OKRs)
         const targets = {};
-        okrsData.forEach((okr) => {
+        okrsResponse.data.forEach((okr) => {
           targets[okr._id] = 8; // Default 8 hours per week per OKR
         });
         setWeeklyTargets(targets);
@@ -107,27 +107,71 @@ export default function WeeklyTimesheet() {
     }
   };
 
+  // Add a refresh method that can be called externally
+  const refreshData = () => {
+    fetchData();
+  };
+
+  // Expose refresh method to parent components
+  useEffect(() => {
+    if (onTimeEntryUpdate && typeof onTimeEntryUpdate === 'function') {
+      // Pass the refresh function to parent
+      onTimeEntryUpdate(refreshData);
+    }
+  }, [onTimeEntryUpdate]);
+
   const getEntryKey = (okrId, date, category) => {
     return `${okrId}-${formatDate(date)}-${category}`;
   };
 
   const getEntryValue = (okrId, date, category) => {
     const key = getEntryKey(okrId, date, category);
-    return timeEntries[key]?.hoursSpent || '';
+    const entry = timeEntries[key];
+    return entry ? parseFloat(entry.hoursSpent) || 0 : 0;
   };
 
   const updateEntry = async (okrId, date, category, hours, description = '') => {
     const key = getEntryKey(okrId, date, category);
     const existingEntry = timeEntries[key];
+    const hoursValue = parseFloat(hours) || 0;
+
+    // If hours is 0 or empty, delete the entry
+    if (hoursValue === 0 && existingEntry) {
+      try {
+        setSaving(true);
+        await api.delete(`/time-entries/${existingEntry._id}`);
+
+        const newEntries = { ...timeEntries };
+        delete newEntries[key];
+        setTimeEntries(newEntries);
+
+        toast.success('Time entry removed');
+
+        // Notify parent component about the update
+        if (onTimeEntryUpdate && typeof onTimeEntryUpdate === 'function') {
+          onTimeEntryUpdate();
+        }
+      } catch (error) {
+        console.error('Error deleting entry:', error);
+        toast.error('Failed to remove time entry');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Skip if hours is 0 and no existing entry
+    if (hoursValue === 0 && !existingEntry) {
+      return;
+    }
 
     try {
       setSaving(true);
-      const token = localStorage.getItem('accessToken');
 
       const payload = {
         okrId,
         date: formatDate(date),
-        hoursSpent: parseFloat(hours) || 0,
+        hoursSpent: hoursValue,
         category,
         description: description || `${category.replace('_', ' ')} work`
       };
@@ -135,38 +179,23 @@ export default function WeeklyTimesheet() {
       let response;
       if (existingEntry) {
         // Update existing entry
-        response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/time-entries/${existingEntry._id}`,
-          {
-            method: 'PATCH',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-          }
-        );
+        response = await api.put(`/time-entries/${existingEntry._id}`, payload);
       } else {
         // Create new entry
-        response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/time-entries`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        });
+        response = await api.post('/time-entries', payload);
       }
 
-      if (response.ok) {
-        const updatedEntry = await response.json();
+      if (response.data) {
         setTimeEntries((prev) => ({
           ...prev,
-          [key]: updatedEntry
+          [key]: response.data
         }));
         toast.success('Time entry updated');
-      } else {
-        throw new Error('Failed to save entry');
+
+        // Notify parent component about the update
+        if (onTimeEntryUpdate && typeof onTimeEntryUpdate === 'function') {
+          onTimeEntryUpdate();
+        }
       }
     } catch (error) {
       console.error('Error updating entry:', error);
@@ -181,7 +210,7 @@ export default function WeeklyTimesheet() {
     okrs.forEach((okr) => {
       categories.forEach((category) => {
         const hours = getEntryValue(okr._id, date, category);
-        if (hours) total += parseFloat(hours);
+        total += hours;
       });
     });
     return total;
@@ -192,7 +221,7 @@ export default function WeeklyTimesheet() {
     getWeekDates(currentWeek).forEach((date) => {
       categories.forEach((category) => {
         const hours = getEntryValue(okrId, date, category);
-        if (hours) total += parseFloat(hours);
+        total += hours;
       });
     });
     return total;
@@ -305,7 +334,7 @@ export default function WeeklyTimesheet() {
           <div className="bg-primary-50 rounded-lg p-3">
             <div className="text-sm text-primary-600 font-medium">Total Hours</div>
             <div className="text-2xl font-bold text-primary-900">
-              {getTotalHoursForWeek().toFixed(1)}
+              {formatHours(getTotalHoursForWeek())}
             </div>
           </div>
           <div className="bg-green-50 rounded-lg p-3">
@@ -364,8 +393,8 @@ export default function WeeklyTimesheet() {
                         )}
                       </div>
                       <div className="text-sm text-gray-600">
-                        {getTotalHoursForOKR(okr._id).toFixed(1)}h /{' '}
-                        {parseFloat(weeklyTargets[okr._id] || 0).toFixed(1)}h target
+                        {formatHours(getTotalHoursForOKR(okr._id))}h /{' '}
+                        {formatHours(parseFloat(weeklyTargets[okr._id] || 0))}h target
                       </div>
                     </div>
                   </td>
@@ -401,7 +430,7 @@ export default function WeeklyTimesheet() {
                               step="0.25"
                               min="0"
                               max="24"
-                              value={value}
+                              value={value || ''}
                               onChange={(e) => {
                                 const newValue = e.target.value;
                                 if (
@@ -424,11 +453,11 @@ export default function WeeklyTimesheet() {
                             <div
                               onClick={() => setEditingCell(cellKey)}
                               className={`w-16 h-8 mx-auto flex items-center justify-center rounded cursor-pointer transition-colors ${
-                                value ? getCategoryColor(category) : 'hover:bg-gray-100'
-                              } ${value ? 'border' : 'border border-transparent hover:border-gray-300'}`}
+                                value > 0 ? getCategoryColor(category) : 'hover:bg-gray-100'
+                              } ${value > 0 ? 'border' : 'border border-transparent hover:border-gray-300'}`}
                             >
-                              {value ? (
-                                <span className="text-sm font-medium">{value}</span>
+                              {value > 0 ? (
+                                <span className="text-sm font-medium">{formatHours(value)}</span>
                               ) : (
                                 <Plus className="h-3 w-3 text-gray-400" />
                               )}
@@ -439,17 +468,17 @@ export default function WeeklyTimesheet() {
                     })}
 
                     <td className="p-4 text-center font-medium">
-                      {categories
-                        .reduce((total, cat) => {
+                      {formatHours(
+                        categories.reduce((total, cat) => {
                           if (cat === category) {
                             return getWeekDates(currentWeek).reduce((catTotal, date) => {
                               const hours = getEntryValue(okr._id, date, category);
-                              return catTotal + (parseFloat(hours) || 0);
+                              return catTotal + hours;
                             }, 0);
                           }
                           return total;
                         }, 0)
-                        .toFixed(1)}
+                      )}
                       h
                     </td>
                   </tr>
@@ -469,12 +498,12 @@ export default function WeeklyTimesheet() {
                       total > 8 ? 'text-red-600' : total < 6 ? 'text-yellow-600' : 'text-green-600'
                     }`}
                   >
-                    {total.toFixed(1)}h
+                    {formatHours(total)}h
                   </td>
                 );
               })}
               <td className="p-4 text-center text-primary-600 font-bold">
-                {getTotalHoursForWeek().toFixed(1)}h
+                {formatHours(getTotalHoursForWeek())}h
               </td>
             </tr>
           </tbody>

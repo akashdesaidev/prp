@@ -75,6 +75,7 @@ function AdminTimeTracker() {
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Clock },
@@ -128,8 +129,11 @@ function AdminTimeTracker() {
     if (activeTab === 'overview') {
       fetchOverviewData();
     }
+    // Trigger refresh for calendar and timesheet components
+    setRefreshTrigger((prev) => prev + 1);
     setShowEntryForm(false);
     setSelectedEntry(null);
+    setSelectedDate(null);
   };
 
   const handleEditEntry = (entry) => {
@@ -397,7 +401,7 @@ function AdminTimeTracker() {
       case 'tracker':
         return <TimeTracker onTimeLogged={handleEntrySuccess} />;
       case 'timesheet':
-        return <WeeklyTimesheet />;
+        return <WeeklyTimesheet onTimeEntryUpdate={handleEntrySuccess} />;
       case 'calendar':
         return (
           <TimesheetCalendar
@@ -407,6 +411,7 @@ function AdminTimeTracker() {
               setSelectedDate(formattedDate);
               setShowEntryForm(true);
             }}
+            refreshTrigger={refreshTrigger}
           />
         );
       case 'analytics':
