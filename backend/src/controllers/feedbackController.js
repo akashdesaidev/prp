@@ -1,6 +1,7 @@
 import Feedback from '../models/Feedback.js';
 import User from '../models/User.js';
 import notificationService from '../services/notificationService.js';
+import aiService from '../services/aiService.js';
 import { validationResult } from 'express-validator';
 
 // Get feedback for a user (received feedback)
@@ -165,6 +166,43 @@ export const createFeedback = async (req, res) => {
       });
     }
 
+    // Analyze sentiment using AI service
+    let sentimentScore = null;
+    let aiQualityFlags = [];
+    let confidenceScore = null;
+
+    try {
+      console.log('🤖 Starting sentiment analysis for feedback...');
+      console.log('   Content length:', content.length);
+      console.log('   Content preview:', content.substring(0, 100) + '...');
+
+      const sentimentResult = await aiService.analyzeSentiment(content);
+      console.log('🔍 Sentiment analysis result:', sentimentResult);
+
+      if (sentimentResult.success) {
+        sentimentScore = sentimentResult.sentiment;
+        aiQualityFlags = sentimentResult.qualityFlags || [];
+        confidenceScore = sentimentResult.confidence || null;
+
+        console.log('✅ Sentiment analysis successful:', {
+          sentiment: sentimentScore,
+          qualityFlags: aiQualityFlags,
+          confidence: confidenceScore,
+          provider: sentimentResult.provider
+        });
+      } else {
+        console.warn('⚠️ Sentiment analysis failed:', sentimentResult.error);
+        // Set default neutral sentiment if AI fails
+        sentimentScore = 'neutral';
+        confidenceScore = 0.1;
+      }
+    } catch (sentimentError) {
+      console.error('🔥 Sentiment analysis error:', sentimentError);
+      // Set default neutral sentiment if AI fails
+      sentimentScore = 'neutral';
+      confidenceScore = 0.1;
+    }
+
     // Create feedback
     const feedback = new Feedback({
       fromUserId: req.user.id,
@@ -175,7 +213,10 @@ export const createFeedback = async (req, res) => {
       category,
       tags,
       isAnonymous,
-      reviewCycleId
+      reviewCycleId,
+      sentimentScore,
+      aiQualityFlags,
+      confidenceScore
     });
 
     await feedback.save();
@@ -201,6 +242,12 @@ export const createFeedback = async (req, res) => {
         // Don't fail the request if notification fails
       }
     }
+
+    console.log('✅ Feedback created successfully with sentiment:', {
+      id: feedback._id,
+      sentiment: sentimentScore,
+      qualityFlags: aiQualityFlags
+    });
 
     res.status(201).json({
       success: true,
@@ -926,6 +973,81 @@ export const getFeedbackSentimentAnalytics = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to get sentiment analytics',
+      error: error.message
+    });
+  }
+};
+
+// Analyze sentiment for existing feedback (for testing/migration)
+export const analyzeFeedbackSentiment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Only admin/hr can trigger sentiment analysis
+    if (!['admin', 'hr'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied - insufficient permissions'
+      });
+    }
+
+    const feedback = await Feedback.findById(id);
+    if (!feedback) {
+      return res.status(404).json({
+        success: false,
+        message: 'Feedback not found'
+      });
+    }
+
+    // Analyze sentiment
+    try {
+      console.log('🤖 Re-analyzing sentiment for feedback:', feedback._id);
+      const sentimentResult = await aiService.analyzeSentiment(feedback.content);
+
+      if (sentimentResult.success) {
+        feedback.sentimentScore = sentimentResult.sentiment;
+        feedback.aiQualityFlags = sentimentResult.qualityFlags || [];
+        feedback.confidenceScore = sentimentResult.confidence || null;
+
+        await feedback.save();
+
+        console.log('✅ Sentiment re-analysis successful:', {
+          id: feedback._id,
+          sentiment: feedback.sentimentScore,
+          qualityFlags: feedback.aiQualityFlags,
+          provider: sentimentResult.provider
+        });
+
+        res.json({
+          success: true,
+          message: 'Sentiment analysis completed',
+          data: {
+            sentiment: feedback.sentimentScore,
+            qualityFlags: feedback.aiQualityFlags,
+            confidence: feedback.confidenceScore,
+            provider: sentimentResult.provider
+          }
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Sentiment analysis failed',
+          error: sentimentResult.error
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error analyzing sentiment:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to analyze sentiment',
+        error: error.message
+      });
+    }
+  } catch (error) {
+    console.error('Error in analyzeFeedbackSentiment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to analyze feedback sentiment',
       error: error.message
     });
   }

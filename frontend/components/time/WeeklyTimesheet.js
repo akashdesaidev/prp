@@ -364,8 +364,8 @@ export default function WeeklyTimesheet() {
                         )}
                       </div>
                       <div className="text-sm text-gray-600">
-                        {getTotalHoursForOKR(okr._id).toFixed(1)}h / {weeklyTargets[okr._id] || 0}h
-                        target
+                        {getTotalHoursForOKR(okr._id).toFixed(1)}h /{' '}
+                        {parseFloat(weeklyTargets[okr._id] || 0).toFixed(1)}h target
                       </div>
                     </div>
                   </td>

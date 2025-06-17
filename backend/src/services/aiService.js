@@ -342,24 +342,31 @@ Provide a professional, specific answer in 2-3 sentences.`
   }
 
   async analyzeSentiment(text) {
+    console.log('🧠 AI Service: analyzeSentiment called');
+    console.log('   Text length:', text.length);
+    console.log('   OpenAI key exists:', !!process.env.OPENAI_API_KEY);
+    console.log('   Gemini key exists:', !!process.env.GEMINI_API_KEY);
+
     try {
+      console.log('   Attempting OpenAI analysis...');
       const response = await this.openaiClient.post('/chat/completions', {
         model: 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
             content:
-              'You are a sentiment analysis AI. Analyze the sentiment of the given text and respond with only one word: "positive", "neutral", or "negative". Also identify if the response is vague or ambiguous.'
+              'You are a sentiment analysis AI. Analyze the sentiment of the given text and respond with only one word: \"positive\", \"neutral\", or \"negative\". Also identify if the response is vague or ambiguous.'
           },
           {
             role: 'user',
-            content: `Analyze the sentiment and quality of this text: "${text}"`
+            content: `Analyze the sentiment and quality of this text: \"${text}\"`
           }
         ],
         max_tokens: 50,
         temperature: 0.1
       });
 
+      console.log('✅ OpenAI response received');
       const result = response.data.choices[0].message.content.toLowerCase();
       const sentiment = result.includes('positive')
         ? 'positive'
@@ -367,62 +374,180 @@ Provide a professional, specific answer in 2-3 sentences.`
           ? 'negative'
           : 'neutral';
 
-      const qualityFlags = [];
-      if (result.includes('vague') || result.includes('ambiguous') || text.length < 20) {
-        qualityFlags.push('vague_response');
-      }
-      if (text.split(' ').length < 5) {
-        qualityFlags.push('too_short');
-      }
-
-      return {
-        success: true,
-        sentiment,
-        qualityFlags,
-        provider: 'openai'
-      };
-    } catch (error) {
-      logger.error('Sentiment analysis failed', error);
-
-      // Simple fallback sentiment analysis
-      const positiveWords = [
-        'good',
-        'great',
-        'excellent',
-        'outstanding',
-        'positive',
-        'strong',
-        'effective'
-      ];
-      const negativeWords = [
-        'bad',
-        'poor',
-        'weak',
-        'ineffective',
-        'negative',
-        'lacking',
-        'needs improvement'
-      ];
-
-      const lowerText = text.toLowerCase();
-      const positiveCount = positiveWords.filter((word) => lowerText.includes(word)).length;
-      const negativeCount = negativeWords.filter((word) => lowerText.includes(word)).length;
-
-      let sentiment = 'neutral';
-      if (positiveCount > negativeCount) sentiment = 'positive';
-      else if (negativeCount > positiveCount) sentiment = 'negative';
-
+      // Analyze quality
       const qualityFlags = [];
       if (text.length < 20) qualityFlags.push('too_short');
-      if (text.split(' ').length < 5) qualityFlags.push('vague_response');
+      if (text.length > 1000) qualityFlags.push('too_long');
+      if (result.includes('vague') || result.includes('ambiguous')) {
+        qualityFlags.push('vague_or_ambiguous');
+      }
+
+      // Calculate confidence
+      let confidence = 0.8; // Base confidence for OpenAI
+      if (text.length < 20) confidence -= 0.2;
+      if (qualityFlags.length > 0) confidence -= 0.1;
+
+      console.log('🎯 OpenAI sentiment result:', { sentiment, confidence, qualityFlags });
 
       return {
         success: true,
         sentiment,
         qualityFlags,
-        provider: 'fallback'
+        confidence,
+        provider: 'openai'
       };
+    } catch (openAIError) {
+      console.warn('⚠️ OpenAI failed, trying Gemini fallback:', openAIError.message);
+
+      try {
+        console.log('   Attempting Gemini analysis...');
+        const response = await this.geminiClient.post('/models/gemini-pro:generateContent', {
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Analyze the sentiment of this text and respond with only one word: "positive", "neutral", or "negative": "${text}"`
+                }
+              ]
+            }
+          ]
+        });
+
+        console.log('✅ Gemini response received');
+        const result = response.data.candidates[0].content.parts[0].text.toLowerCase();
+        const sentiment = result.includes('positive')
+          ? 'positive'
+          : result.includes('negative')
+            ? 'negative'
+            : 'neutral';
+
+        // Basic quality analysis for Gemini
+        const qualityFlags = [];
+        if (text.length < 20) qualityFlags.push('too_short');
+        if (text.length > 1000) qualityFlags.push('too_long');
+
+        let confidence = 0.6; // Lower confidence for Gemini
+        if (text.length < 20) confidence -= 0.2;
+
+        console.log('🎯 Gemini sentiment result:', { sentiment, confidence, qualityFlags });
+
+        return {
+          success: true,
+          sentiment,
+          qualityFlags,
+          confidence,
+          provider: 'gemini'
+        };
+      } catch (geminiError) {
+        console.error('❌ Both AI providers failed');
+        console.error('   OpenAI error:', openAIError.message);
+        console.error('   Gemini error:', geminiError.message);
+
+        // Fallback sentiment analysis
+        console.log('🔄 Using fallback sentiment analysis...');
+        const fallbackSentiment = await this.fallbackSentimentAnalysis(text);
+        console.log('🎯 Fallback sentiment result:', fallbackSentiment);
+
+        return fallbackSentiment;
+      }
     }
+  }
+
+  async fallbackSentimentAnalysis(text) {
+    console.log('📝 Running fallback sentiment analysis...');
+    const positiveWords = [
+      'great',
+      'excellent',
+      'amazing',
+      'good',
+      'wonderful',
+      'fantastic',
+      'awesome',
+      'outstanding',
+      'brilliant',
+      'superb',
+      'impressive',
+      'remarkable',
+      'exceptional',
+      'perfect',
+      'love',
+      'like',
+      'enjoy',
+      'appreciate',
+      'thank',
+      'pleased',
+      'happy',
+      'satisfied',
+      'delighted',
+      'thrilled',
+      'excited'
+    ];
+
+    const negativeWords = [
+      'bad',
+      'terrible',
+      'awful',
+      'horrible',
+      'poor',
+      'disappointing',
+      'unsatisfactory',
+      'inadequate',
+      'subpar',
+      'unacceptable',
+      'frustrating',
+      'annoying',
+      'concerning',
+      'problematic',
+      'issues',
+      'problems',
+      'hate',
+      'dislike',
+      'unhappy',
+      'dissatisfied',
+      'angry',
+      'upset',
+      'disappointed',
+      'concerned',
+      'worried'
+    ];
+
+    const lowerText = text.toLowerCase();
+    let positiveCount = 0;
+    let negativeCount = 0;
+
+    positiveWords.forEach((word) => {
+      if (lowerText.includes(word)) positiveCount++;
+    });
+
+    negativeWords.forEach((word) => {
+      if (lowerText.includes(word)) negativeCount++;
+    });
+
+    let sentiment = 'neutral';
+    if (positiveCount > negativeCount) sentiment = 'positive';
+    else if (negativeCount > positiveCount) sentiment = 'negative';
+
+    const qualityFlags = [];
+    if (text.length < 20) qualityFlags.push('too_short');
+    if (text.length > 1000) qualityFlags.push('too_long');
+
+    const confidence = 0.3; // Low confidence for fallback
+
+    console.log('📊 Fallback analysis:', {
+      positiveCount,
+      negativeCount,
+      sentiment,
+      confidence,
+      qualityFlags
+    });
+
+    return {
+      success: true,
+      sentiment,
+      qualityFlags,
+      confidence,
+      provider: 'fallback'
+    };
   }
 
   // AI Scoring Algorithm (as per PRD)

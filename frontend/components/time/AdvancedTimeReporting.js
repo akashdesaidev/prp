@@ -454,7 +454,9 @@ export default function AdvancedTimeReporting() {
                 <div key={index} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <h5 className="font-medium text-gray-900">{okr.name}</h5>
-                    <span className="text-sm text-gray-600">{okr.hours}h logged</span>
+                    <span className="text-sm text-gray-600">
+                      {parseFloat(okr.hours).toFixed(1)}h logged
+                    </span>
                   </div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-gray-600">Progress</span>

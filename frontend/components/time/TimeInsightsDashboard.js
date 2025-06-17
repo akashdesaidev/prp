@@ -294,8 +294,24 @@ export default function TimeInsightsDashboard() {
           </div>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Current Week</span>
-              <span className="font-semibold">{insights.goals.currentWeek}h</span>
+              <div>
+                <p className="text-sm text-gray-600">This Week</p>
+                <span className="font-semibold">
+                  {parseFloat(insights.goals.currentWeek).toFixed(1)}h
+                </span>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Last Week</p>
+                <span className="font-semibold">
+                  {parseFloat(insights.goals.lastWeek).toFixed(1)}h
+                </span>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Average</p>
+                <span className="text-gray-600">
+                  Target: {parseFloat(insights.goals.weeklyTarget).toFixed(1)}h
+                </span>
+              </div>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
               <div
@@ -308,7 +324,6 @@ export default function TimeInsightsDashboard() {
               ></div>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">Target: {insights.goals.weeklyTarget}h</span>
               <span
                 className={`font-medium ${insights.goals.onTrack ? 'text-green-600' : 'text-orange-600'}`}
               >
@@ -410,8 +425,10 @@ export default function TimeInsightsDashboard() {
               <span className="font-semibold">{insights.patterns.peakHours.join(', ')}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Avg Session Length</span>
-              <span className="font-semibold">{insights.patterns.averageSessionLength}h</span>
+              <span className="text-sm text-gray-600">Average Session</span>
+              <span className="font-semibold">
+                {parseFloat(insights.patterns.averageSessionLength).toFixed(1)}h
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Focus Time</span>

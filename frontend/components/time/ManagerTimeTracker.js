@@ -489,7 +489,7 @@ export default function ManagerTimeTracker() {
               <div>
                 <p className="text-sm text-gray-600">My Week</p>
                 <p className="text-2xl font-bold text-gray-900">{myWeeklyHours.toFixed(1)}h</p>
-                <p className="text-xs text-gray-500">of {target}h target</p>
+                <p className="text-xs text-gray-500">of {parseFloat(target).toFixed(1)}h target</p>
               </div>
             </div>
           </div>
@@ -559,7 +559,9 @@ export default function ManagerTimeTracker() {
                       )}
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         <span>{new Date(entry.date).toLocaleDateString()}</span>
-                        <span className="font-medium">{entry.hoursSpent}h</span>
+                        <span className="font-medium">
+                          {parseFloat(entry.hoursSpent).toFixed(1)}h
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

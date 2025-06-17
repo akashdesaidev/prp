@@ -262,7 +262,7 @@ export default function TimesheetCalendar({ onDateSelect, onEntryClick }) {
                   ${getHoursColor(totalHours)}
                 `}
                 >
-                  {totalHours}h
+                  {totalHours.toFixed(1)}h
                 </div>
               )}
 
@@ -310,7 +310,9 @@ export default function TimesheetCalendar({ onDateSelect, onEntryClick }) {
             </h4>
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-gray-500" />
-              <span className="font-medium">{getTotalHoursForDate(selectedDate)}h logged</span>
+              <span className="font-medium">
+                {getTotalHoursForDate(selectedDate).toFixed(1)}h logged
+              </span>
             </div>
           </div>
 
@@ -323,7 +325,7 @@ export default function TimesheetCalendar({ onDateSelect, onEntryClick }) {
                     <span className="font-medium">{entry.okrId?.title || 'Unknown OKR'}</span>
                     <span className="text-gray-500">({entry.category.replace('_', ' ')})</span>
                   </div>
-                  <span className="font-medium">{entry.hoursSpent}h</span>
+                  <span className="font-medium">{parseFloat(entry.hoursSpent).toFixed(1)}h</span>
                 </div>
               ))}
             </div>

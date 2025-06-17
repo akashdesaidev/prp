@@ -80,8 +80,6 @@ function AdminTimeTracker() {
     { id: 'timesheet', label: 'Weekly Timesheet', icon: Calendar },
     { id: 'calendar', label: 'Calendar View', icon: Calendar },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'insights', label: 'AI Insights', icon: Brain },
-    { id: 'planning', label: 'Time Planning', icon: Target },
     { id: 'optimizer', label: 'Smart Optimizer', icon: Zap },
     { id: 'collaboration', label: 'Team Collaboration', icon: Users },
     { id: 'reports', label: 'Advanced Reports', icon: FileText }

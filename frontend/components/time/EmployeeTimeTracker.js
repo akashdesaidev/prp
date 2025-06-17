@@ -182,7 +182,7 @@ export default function EmployeeTimeTracker() {
               <div>
                 <p className="text-sm text-gray-600">This Week</p>
                 <p className="text-2xl font-bold text-gray-900">{weeklyHours.toFixed(1)}h</p>
-                <p className="text-xs text-gray-500">of {target}h target</p>
+                <p className="text-xs text-gray-500">of {parseFloat(target).toFixed(1)}h target</p>
               </div>
             </div>
           </div>
@@ -223,7 +223,7 @@ export default function EmployeeTimeTracker() {
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Weekly Target: {target} hours</span>
               <span className="text-sm font-medium text-gray-900">
-                {weeklyHours.toFixed(1)}h / {target}h
+                {weeklyHours.toFixed(1)}h / {parseFloat(target).toFixed(1)}h
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
@@ -240,8 +240,8 @@ export default function EmployeeTimeTracker() {
             </div>
             <div className="flex justify-between text-xs text-gray-500">
               <span>0h</span>
-              <span>{target / 2}h</span>
-              <span>{target}h</span>
+              <span>{parseFloat(target / 2).toFixed(1)}h</span>
+              <span>{parseFloat(target).toFixed(1)}h</span>
             </div>
           </div>
         </div>
@@ -359,7 +359,9 @@ export default function EmployeeTimeTracker() {
                       )}
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         <span>{new Date(entry.date).toLocaleDateString()}</span>
-                        <span className="font-medium">{entry.hoursSpent}h</span>
+                        <span className="font-medium">
+                          {parseFloat(entry.hoursSpent).toFixed(1)}h
+                        </span>
                         {entry.keyResultId && (
                           <span className="text-blue-600">Specific Key Result</span>
                         )}

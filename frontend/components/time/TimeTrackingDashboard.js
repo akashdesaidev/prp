@@ -421,7 +421,9 @@ export default function TimeTrackingDashboard() {
                     )}
                     <div className="flex items-center gap-4 text-sm text-gray-500">
                       <span>{new Date(entry.createdAt).toLocaleTimeString()}</span>
-                      <span className="font-medium text-primary-600">{entry.hoursSpent}h</span>
+                      <span className="font-medium text-primary-600">
+                        {parseFloat(entry.hoursSpent).toFixed(1)}h
+                      </span>
                     </div>
                   </div>
                 </div>

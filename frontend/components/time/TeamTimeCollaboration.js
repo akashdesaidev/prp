@@ -169,10 +169,10 @@ export default function TeamTimeCollaboration() {
               <Clock className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Avg Overlap Hours</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {teamData.collaborationMetrics.averageOverlapHours}h
-              </p>
+              <div className="text-2xl font-bold text-gray-900">
+                {parseFloat(teamData.collaborationMetrics.averageOverlapHours).toFixed(1)}h
+              </div>
+              <div className="text-sm text-gray-600">Avg Overlap Hours</div>
             </div>
           </div>
         </div>
@@ -230,7 +230,9 @@ export default function TeamTimeCollaboration() {
                 <div className="flex items-center gap-6">
                   <div className="text-center">
                     <p className="text-sm text-gray-600">Weekly Hours</p>
-                    <p className="font-semibold text-gray-900">{member.weeklyHours}h</p>
+                    <p className="font-semibold text-gray-900">
+                      {parseFloat(member.weeklyHours).toFixed(1)}h
+                    </p>
                   </div>
 
                   <div className="text-center">
@@ -374,18 +376,22 @@ export default function TeamTimeCollaboration() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-600">Focus Time</p>
-                    <p className="font-semibold text-gray-900">{member.focusTime}h/week</p>
+                    <p className="font-semibold text-gray-900">
+                      {parseFloat(member.focusTime).toFixed(1)}h/week
+                    </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Collaboration Time</p>
-                    <p className="font-semibold text-gray-900">{member.collaborationTime}h/week</p>
+                    <p className="text-sm text-gray-600">Collaboration</p>
+                    <p className="font-semibold text-gray-900">
+                      {parseFloat(member.collaborationTime).toFixed(1)}h/week
+                    </p>
                   </div>
                 </div>
 
                 <div className="mt-4">
                   <div className="flex justify-between text-sm text-gray-600 mb-1">
                     <span>Workload Distribution</span>
-                    <span>{member.weeklyHours}h total</span>
+                    <span>{parseFloat(member.weeklyHours).toFixed(1)}h total</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div className="flex h-2 rounded-full overflow-hidden">

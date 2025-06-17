@@ -248,7 +248,9 @@ export default function TimeEntryQuickActions({ onTimeLogged }) {
               >
                 <Icon className="h-6 w-6 mx-auto mb-2" />
                 <p className="font-medium text-sm">{template.name}</p>
-                <p className="text-xs opacity-75">{template.defaultHours}h</p>
+                <p className="text-xs opacity-75">
+                  {parseFloat(template.defaultHours).toFixed(1)}h
+                </p>
               </button>
             );
           })}

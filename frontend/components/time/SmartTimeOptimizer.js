@@ -240,7 +240,7 @@ export default function SmartTimeOptimizer() {
                 </div>
                 <p className="text-gray-600 mb-3">{rec.description}</p>
                 <div className="flex items-center gap-4 text-sm text-gray-500">
-                  <span>⏱️ Saves {rec.timesSaved}h/week</span>
+                  <span>⏱️ Saves {parseFloat(rec.timesSaved).toFixed(1)}h/week</span>
                   <span>🎯 {rec.effort} effort</span>
                 </div>
               </div>
@@ -387,7 +387,9 @@ export default function SmartTimeOptimizer() {
               <div className="flex-1">
                 <h4 className="font-semibold text-gray-900 mb-2">{opt.suggestion}</h4>
                 <p className="text-gray-600 mb-2">{opt.benefit}</p>
-                <span className="text-sm text-green-600">⏱️ Saves {opt.timesSaved}h/week</span>
+                <span className="text-sm text-green-600">
+                  ⏱️ Saves {parseFloat(opt.timesSaved).toFixed(1)}h/week
+                </span>
               </div>
               <Button variant="outline">Apply</Button>
             </div>

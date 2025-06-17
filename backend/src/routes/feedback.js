@@ -215,6 +215,17 @@ router.get('/:id', auth, idValidation, feedbackController.getFeedback);
 // @access  All authenticated users
 router.post('/', auth, createFeedbackValidation, feedbackController.createFeedback);
 
+// @route   POST /api/v1/feedback/:id/analyze-sentiment
+// @desc    Analyze sentiment for existing feedback
+// @access  Admin, HR
+router.post(
+  '/:id/analyze-sentiment',
+  auth,
+  rbac(['admin', 'hr']),
+  [param('id').isMongoId().withMessage('Invalid feedback ID')],
+  feedbackController.analyzeFeedbackSentiment
+);
+
 // @route   PUT /api/v1/feedback/:id
 // @desc    Update feedback
 // @access  Feedback sender only

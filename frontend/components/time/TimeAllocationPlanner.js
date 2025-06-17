@@ -498,7 +498,7 @@ export default function TimeAllocationPlanner() {
         <div className="space-y-4">
           <div className="flex items-center justify-between text-sm text-gray-600">
             <span>0h</span>
-            <span>{totalWeeklyHours}h</span>
+            <span>{parseFloat(totalWeeklyHours).toFixed(1)}h</span>
           </div>
 
           <div className="w-full bg-gray-200 rounded-full h-8 relative overflow-hidden">
@@ -522,9 +522,9 @@ export default function TimeAllocationPlanner() {
                         key={index}
                         className={`h-full ${color} flex items-center justify-center text-white text-xs font-medium`}
                         style={{ width: `${percentage}%` }}
-                        title={`${alloc.okrTitle}: ${alloc.weeklyHours}h`}
+                        title={`${alloc.okrTitle}: ${parseFloat(alloc.weeklyHours).toFixed(1)}h`}
                       >
-                        {percentage > 10 ? `${alloc.weeklyHours}h` : ''}
+                        {percentage > 10 ? `${parseFloat(alloc.weeklyHours).toFixed(1)}h` : ''}
                       </div>
                     );
 
@@ -552,7 +552,7 @@ export default function TimeAllocationPlanner() {
                   <div key={index} className="flex items-center gap-2">
                     <div className={`w-3 h-3 rounded-full ${color}`}></div>
                     <span className="text-sm text-gray-700 truncate">
-                      {alloc.okrTitle} ({alloc.weeklyHours}h)
+                      {alloc.okrTitle} ({parseFloat(alloc.weeklyHours).toFixed(1)}h)
                     </span>
                   </div>
                 );
