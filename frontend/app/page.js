@@ -489,15 +489,6 @@ function Dashboard() {
       });
     }
 
-    baseCards.push({
-      title: 'Feedback',
-      value: stats.feedback,
-      icon: CheckCircle,
-      href: '/feedback',
-      description: 'Received this month',
-      color: 'orange'
-    });
-
     return baseCards;
   };
 
