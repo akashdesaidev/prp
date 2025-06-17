@@ -90,9 +90,20 @@ export const listUsers = async (req, res) => {
 };
 
 export const getUser = async (req, res) => {
-  const user = await User.findById(req.params.id).select('-password');
-  if (!user) return res.status(404).json({ error: 'Not found' });
-  return res.json(user);
+  try {
+    // Role-based field selection
+    let selectFields = '-password';
+    if (req.user.role === 'employee') {
+      // Employees only see basic info needed for feedback
+      selectFields = 'firstName lastName email department _id';
+    }
+
+    const user = await User.findById(req.params.id).select(selectFields);
+    if (!user) return res.status(404).json({ error: 'Not found' });
+    return res.json(user);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
 };
 
 const updateSchema = z.object({
