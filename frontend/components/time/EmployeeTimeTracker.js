@@ -11,7 +11,11 @@ import {
   Brain,
   TrendingUp,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Settings,
+  Bell,
+  Activity,
+  Zap
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import TimeEntryForm from './TimeEntryForm';
@@ -21,6 +25,9 @@ import TimesheetCalendar from './TimesheetCalendar';
 import TimeInsightsDashboard from './TimeInsightsDashboard';
 import TimeAnalyticsDashboard from './TimeAnalyticsDashboard';
 import SmartTimeOptimizer from './SmartTimeOptimizer';
+import api from '../../lib/api';
+import toast from 'react-hot-toast';
+import { formatDateLocal } from '../../lib/utils';
 
 export default function EmployeeTimeTracker() {
   const { user } = useAuth();
@@ -30,6 +37,7 @@ export default function EmployeeTimeTracker() {
   const [loading, setLoading] = useState(true);
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
 
   // Employee-focused tabs - comprehensive interface
   const tabs = [
@@ -479,6 +487,9 @@ export default function EmployeeTimeTracker() {
         return (
           <TimesheetCalendar
             onDateSelect={(date) => {
+              // Format the date to avoid timezone issues - use local date values
+              const formattedDate = formatDateLocal(date);
+              setSelectedDate(formattedDate);
               setShowEntryForm(true);
             }}
           />
@@ -544,9 +555,11 @@ export default function EmployeeTimeTracker() {
         onClose={() => {
           setShowEntryForm(false);
           setSelectedEntry(null);
+          setSelectedDate(null);
         }}
         onSuccess={handleEntrySuccess}
         initialData={selectedEntry}
+        selectedDate={selectedDate}
       />
     </div>
   );

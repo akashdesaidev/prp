@@ -37,9 +37,15 @@ export default function TimeEntryForm({
           ...initialData,
           date: initialData.date?.split('T')[0] || formData.date
         });
+      } else if (selectedDate) {
+        // Update the date when selectedDate prop changes
+        setFormData((prev) => ({
+          ...prev,
+          date: selectedDate
+        }));
       }
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, selectedDate]);
 
   useEffect(() => {
     if (formData.okrId) {
@@ -150,10 +156,11 @@ export default function TimeEntryForm({
   };
 
   const resetForm = () => {
+    const defaultDate = selectedDate || new Date().toISOString().split('T')[0];
     setFormData({
       okrId: selectedOkr?._id || '',
       keyResultId: '',
-      date: selectedDate || new Date().toISOString().split('T')[0],
+      date: defaultDate,
       hoursSpent: '',
       description: '',
       category: 'direct_work'

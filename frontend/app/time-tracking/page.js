@@ -29,6 +29,7 @@ import TeamTimeCollaboration from '../../components/time/TeamTimeCollaboration';
 import AdvancedTimeReporting from '../../components/time/AdvancedTimeReporting';
 import EmployeeTimeTracker from '../../components/time/EmployeeTimeTracker';
 import ManagerTimeTracker from '../../components/time/ManagerTimeTracker';
+import { formatDateLocal } from '../../lib/utils';
 
 export default function TimeTrackingPage() {
   const { user } = useAuth();
@@ -73,6 +74,7 @@ function AdminTimeTracker() {
   const [loading, setLoading] = useState(true);
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Clock },
@@ -400,8 +402,10 @@ function AdminTimeTracker() {
         return (
           <TimesheetCalendar
             onDateSelect={(date) => {
+              // Format the date to avoid timezone issues - use local date values
+              const formattedDate = formatDateLocal(date);
+              setSelectedDate(formattedDate);
               setShowEntryForm(true);
-              // Could pre-fill date in form
             }}
           />
         );
@@ -473,9 +477,11 @@ function AdminTimeTracker() {
           onClose={() => {
             setShowEntryForm(false);
             setSelectedEntry(null);
+            setSelectedDate(null);
           }}
           onSuccess={handleEntrySuccess}
           initialData={selectedEntry}
+          selectedDate={selectedDate}
         />
       </div>
     </ProtectedRoute>

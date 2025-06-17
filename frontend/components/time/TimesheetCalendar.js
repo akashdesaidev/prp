@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Calendar, Clock, Plus, Eye } from 'lucide-re
 import { Button } from '../ui/button';
 import api from '../../lib/api';
 import toast from 'react-hot-toast';
+import { formatDateLocal } from '../../lib/utils';
 
 export default function TimesheetCalendar({ onDateSelect, onEntryClick }) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -27,8 +28,8 @@ export default function TimesheetCalendar({ onDateSelect, onEntryClick }) {
 
       const response = await api.get('/time-entries', {
         params: {
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0]
+          startDate: formatDateLocal(startDate),
+          endDate: formatDateLocal(endDate)
         }
       });
 
@@ -81,7 +82,7 @@ export default function TimesheetCalendar({ onDateSelect, onEntryClick }) {
   };
 
   const formatDate = (date) => {
-    return date.toISOString().split('T')[0];
+    return formatDateLocal(date);
   };
 
   const getTotalHoursForDate = (date) => {
